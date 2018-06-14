@@ -1,6 +1,9 @@
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
+import asyncpg
+import asyncio
+import json
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -17,8 +20,21 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
     def open(self):
         self.connections.add(self)
 
-    def on_message(self, message):
+    async def on_message(self, message):
         [client.write_message(message) for client in self.connections]
+        mes = json.loads(message)
+
+        conn = await asyncpg.connect(host='127.0.0.1',
+                                     port='5432',
+                                     user='provider',
+                                     password='12345',
+                                     database='websocket')
+
+        await conn.execute('''
+               INSERT INTO chat(message, author) VALUES($1, $2)
+           ''', mes['message'], mes['user'])
+
+        await conn.close()
 
     def on_close(self):
         self.connections.remove(self)
@@ -30,7 +46,18 @@ def make_app():
         (r"/websocket", SimpleWebSocket)
     ])
 
+
 if __name__ == "__main__":
     app = make_app()
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
+
+
+
+# await conn.execute('''
+        #     CREATE TABLE chat(
+        #         id serial not null primary key,
+        #         user varchar,
+        #         message varchar,
+        #     )
+        # ''')
