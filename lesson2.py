@@ -8,6 +8,7 @@ import json
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
+
         self.render("index.html")
 
 
@@ -23,6 +24,8 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
     async def on_message(self, message):
         [client.write_message(message) for client in self.connections]
         mes = json.loads(message)
+        name = mes['user']
+        print(name)
 
         conn = await asyncpg.connect(host='127.0.0.1',
                                      port='5432',
@@ -33,6 +36,9 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
         await conn.execute('''
                INSERT INTO chat(message, author) VALUES($1, $2)
            ''', mes['message'], mes['user'])
+
+        row = await conn.fetch(
+            'SELECT * FROM chat')
 
         await conn.close()
 
@@ -51,13 +57,3 @@ if __name__ == "__main__":
     app = make_app()
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
-
-
-
-# await conn.execute('''
-        #     CREATE TABLE chat(
-        #         id serial not null primary key,
-        #         user varchar,
-        #         message varchar,
-        #     )
-        # ''')

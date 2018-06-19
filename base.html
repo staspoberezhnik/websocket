@@ -6,14 +6,22 @@
 <body>
     <div style="width:100%; padding: 20px; overflow-y: scroll;">
     <div id="messages"></div>
+        <div class="col-md-12 text-center">
+            {% if not current_user %}
+            <h1>Please sign in</h1>
+            {% end %}
+        </div>
+        {% if current_user %}
     <div style="padding-top: 20px;">
-        <form onsubmit="return sendMessage()">
+        <form onsubmit="return sendMessage()",>
             <input id="message" type="text" style="width: 70%;"><button style="width: 25%">Send</button>
         </form>
     </div>
+
+        {% end %}
     <script>
     var ws = new WebSocket("ws://localhost:8888/websocket");
-    var username = prompt("What's your name?");
+    var username = '{{current_user}}'
 
     function sendMessage() {
         var messageInput = document.getElementById("message");
@@ -37,10 +45,25 @@
         document.getElementById("messages").appendChild(messageBox);
 
 
+
     };
 
 
     </script>
+
+        <div>
+            {% for user in users %}
+            users in chat <a href="privatmes">{{user}}</a>
+            {% end %}
+        </div>
+
+     <div class="container">{% block content %}{% end %}</div>
+        {% if current_user %}
+        <h4>You are signed as <b class="text-success">{{ current_user }}</b> (<a href="/logout">logout</a>).</h4>
+        {% end %}
     </div>
+
+
+
 </body>
 </html>
