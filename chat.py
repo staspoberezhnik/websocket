@@ -50,6 +50,7 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
+
         self.connections.add(self)
 
     async def on_message(self, message):

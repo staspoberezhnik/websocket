@@ -14,6 +14,7 @@ class MainHandler(tornado.web.RequestHandler):
 
 class SimpleWebSocket(tornado.websocket.WebSocketHandler):
     connections = set()
+    # connections = dict()
 
     def check_origin(self, origin):
         return True
