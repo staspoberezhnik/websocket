@@ -76,7 +76,7 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
         self.connections.remove(self)
 
 
-class PrivateHandler(tornado.web.RequestHandler):
+class PrivateHandler(BaseHandler, tornado.web.RequestHandler):
 
     def get(self, user):
         users = []
