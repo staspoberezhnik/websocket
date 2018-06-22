@@ -1,6 +1,77 @@
-{% extends 'base.html' %}
-{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat application</title>
+</head>
+<body>
+    <div style="width:100%; padding: 20px; overflow-y: scroll;">
+    <div id="messages"></div>
+        <div class="col-md-12 text-center">
+            {% if not current_user %}
+            <h1>Please sign in</h1>
+            {% end %}
+        </div>
+        {% if current_user %}
+        <h2>Private message chat</h2>
+        Sender {{ current_user }}<br>
+        Reciever {{ send_to }}
 
-<h1>Private</h1>
 
-{% end %}
+
+    <div style="padding-top: 20px;">
+        <form onsubmit="return sendMessage()",>
+            <input id="message" type="text" style="width: 70%;"><button style="width: 25%">Send</button>
+        </form>
+    </div>
+
+        {% end %}
+    <script>
+    var ws = new WebSocket("ws://127.0.0.1:8888/send_private");
+    var username = '{{current_user}}'
+    var send_to_user = '{{ send_to }}'
+
+
+    function sendMessage() {
+        var messageInput = document.getElementById("message");
+        var message = messageInput.value;
+        var payload = {
+            "message": message,
+            "user": username,
+            "send_to": send_to_user,
+        }
+        // Make the request to the WebSocket.
+        ws.send(JSON.stringify(payload));
+        // Clear the message from the input.
+        messageInput.value = "";
+        return false;
+    }
+
+    ws.onmessage = function(evt) {
+        var messageDict = JSON.parse(evt.data);
+        // Create a div with the format `user: message`.
+        var messageBox = document.createElement("div");
+        messageBox.innerHTML = messageDict.user + ": " + messageDict.message;
+        document.getElementById("messages").appendChild(messageBox);
+    };
+    </script>
+
+
+
+
+        {% if current_user %}
+        <h4>You are signed as <b class="text-success">{{ current_user }}</b> (<a href="/logout">logout</a>).</h4>
+        <h3> Go to <a href="/">group chat</a> </h3>
+        {% end %}
+    </div>
+
+        <div>
+        {% if data %}
+        <h4>History message: <br></h4>
+        {% for value in data %}
+            {{ value['sender']}} SAY : {{ value['message'] }} AT : {{ value['date_created'].strftime("%Y-%m-%d-%H-%M-%S") }}<br>
+            {% end %}
+        {% end %}
+        </div>
+
+</body>
+</html>

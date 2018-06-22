@@ -3,30 +3,44 @@ import tornado.web
 import tornado.websocket
 import asyncpg
 from tornado import escape
+import datetime
 
 
 class BaseHandler(tornado.web.RequestHandler):
+
     def get_current_user(self):
         user = self.get_secure_cookie('user')
+
         return escape.xhtml_escape(user) if user else None
 
 
 class MainHandler(BaseHandler):
-    def get(self):
 
+    async def get(self):
         if not self.current_user:
             self.redirect("/login")
         else:
+            db_connection = await asyncpg.connect(user='provider',
+                                                  password='12345',
+                                                  database='websocket',
+                                                  host='127.0.0.1',
+                                                  port='5432'
+                                                  )
+
+            values = await db_connection.fetch('''SELECT sender,
+             message, date_created FROM chat where reciever is NULL'''
+                                               )
             users = []
             name = tornado.escape.xhtml_escape(self.get_current_user())
             users.append(name)
-            self.render("base.html", users=users)
+            self.render("base.html", users=users, data=values)
 
 
 class LoginHandler(BaseHandler):
     def get(self):
         users = []
-        self.render('login.html', users=users)
+        value = []
+        self.render('login.html', users=users, data=value)
 
     def post(self):
         self.set_secure_cookie("user", self.get_argument("name"))
@@ -41,7 +55,6 @@ class LogoutHandler(BaseHandler):
 
 
 class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
-
     connections = set()
 
     def check_origin(self, origin):
@@ -53,8 +66,75 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
     async def on_message(self, message):
 
         [client.write_message(message) for client in self.connections]
-
         data = tornado.escape.json_decode(message)
+        db_connection = await asyncpg.connect(user='provider',
+                                              password='12345',
+                                              database='websocket',
+                                              host='127.0.0.1',
+                                              port='5432'
+                                              )
+        await db_connection.execute('''
+                INSERT INTO chat( sender, message, date_created) VALUES($1, $2, $3)
+            ''', data['user'],
+                 data['message'],
+                 datetime.datetime.now())
+
+        await db_connection.close()
+
+    def on_close(self):
+        self.connections.remove(self)
+
+
+class PrivateHandler(BaseHandler):
+
+    async def get(self, user):
+        if not self.current_user:
+            self.redirect("/login")
+
+        else:
+            if user == self.get_current_user():
+                self.redirect('/')
+            else:
+                filtered_values = []
+                db_connection = await asyncpg.connect(
+                                user='provider',
+                                password='12345',
+                                database='websocket',
+                                host='127.0.0.1',
+                                port='5432'
+                                )
+                values = await db_connection.fetch('''SELECT sender, reciever, message,
+                 date_created FROM chat''')
+
+                for value in values:
+                    if value['sender'] == self.get_current_user() and value['reciever'] == user:
+                        filtered_values.append(value)
+                    else:
+                        continue
+                send_to_user = user
+                print(self.get_current_user())
+                self.render("private.html", send_to=send_to_user, data=filtered_values)
+
+
+class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
+
+    connections = dict()
+
+    def check_origin(self, origin):
+        return True
+
+    def open(self):
+        # print(self.get_current_user())
+        self.connections[self.get_current_user()] = self
+
+    async def on_message(self, message):
+        data = tornado.escape.json_decode(message)
+        receiver = self.connections.get(data['send_to'])
+        sender = self.connections.get(data['user'])
+        if receiver:
+            receiver.write_message(message)
+        if sender:
+            sender.write_message(message)
 
         db_connection = await asyncpg.connect(user='provider',
                                               password='12345',
@@ -63,27 +143,16 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
                                               port='5432'
                                               )
         await db_connection.execute('''
-                INSERT INTO chat(author, message) VALUES($1, $2)
-            ''', data['user'], data['message'])
-
-        # values = await db_connetion.fetch('''SELECT * FROM chat''')
-        # for value in values:
-        #     print(value)
+                        INSERT INTO chat( sender,reciever, message, date_created) VALUES($1, $2, $3, $4)
+                    ''', data['user'],
+                         data['send_to'],
+                         data['message'],
+                         datetime.datetime.now())
 
         await db_connection.close()
 
     def on_close(self):
-        self.connections.remove(self)
-
-
-class PrivateHandler(BaseHandler, tornado.web.RequestHandler):
-
-    def get(self, user):
-        users = []
-        print(user)
-        name = self.get_secure_cookie('user')
-        users.append(name)
-        self.render("private.html", users=users)
+        self.connections.pop(self.get_current_user())
 
 
 def make_app():
@@ -93,6 +162,7 @@ def make_app():
         (r'/logout', LogoutHandler),
         (r"/websocket", SimpleWebSocket),
         (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
+        (r"/send_private", SendToUser),
     ],
         cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__")
 
