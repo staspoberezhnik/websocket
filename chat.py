@@ -2,6 +2,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 import asyncpg
+
 from tornado import escape
 import datetime
 from decouple import config
@@ -30,18 +31,11 @@ class MainHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
-            # db_connection = await asyncpg.connect(user=config('DB_USER'),
-            #                                       password=config('DB_USER_PASSWORD'),
-            #                                       database=config('DB_NAME'),
-            #                                       host=config('DB_HOST'),
-            #                                       port=config('DB_PORT')
-            #                                       )
+
             async with get_db_pool() as con:
                 result = await con.fetch('''SELECT sender,
              message, date_created FROM chat where reciever is NULL''')
-                print(result)
 
-            # print(res)
             # values = await db_connection.fetch('''SELECT sender,
             #  message, date_created FROM chat where reciever is NULL''')
 
@@ -82,19 +76,13 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 
         [client.write_message(message) for client in self.connections]
         data = tornado.escape.json_decode(message)
-        db_connection = await asyncpg.connect(user=config('DB_USER'),
-                                              password=config('DB_USER_PASSWORD'),
-                                              database=config('DB_NAME'),
-                                              host=config('DB_HOST'),
-                                              port=config('DB_PORT')
-                                              )
-        await db_connection.execute('''
+
+        async with get_db_pool() as con:
+            await con.execute('''
                 INSERT INTO chat( sender, message, date_created) VALUES($1, $2, $3)
             ''', data['user'],
                  data['message'],
                  datetime.datetime.now())
-
-        await db_connection.close()
 
     def on_close(self):
         self.connections.remove(self)
@@ -168,7 +156,6 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
         self.connections.pop(self.get_current_user())
 
 
-
 def make_app():
     return tornado.web.Application([
         (r"/", MainHandler),
@@ -182,29 +169,14 @@ def make_app():
     )
 
 
-# async def init_app():
-#     """Initialize the application server."""
-#     app = tornado.web.Application()
-#     # Create a database connection pool
-#     app['pool'] = await asyncpg.create_pool(  user=config('DB_USER'),
-#                                               password=config('DB_USER_PASSWORD'),
-#                                               database=config('DB_NAME'),
-#                                               host=config('DB_HOST'),
-#                                               port=config('DB_PORT'))
-#     # Configure service routes
-#     app.add_handlers([
-#         (r"/", MainHandler),
-#         (r"/login", LoginHandler),
-#         (r'/logout', LogoutHandler),
-#         (r"/websocket", SimpleWebSocket),
-#         (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
-#         (r"/send_private", SendToUser),
-#     ])
-#
-#     return app
-
-
 if __name__ == "__main__":
     app = make_app()
     app.listen(config('PORT'))
     tornado.ioloop.IOLoop.current().start()
+
+# db_connection = await asyncpg.connect(user=config('DB_USER'),
+        #                                       password=config('DB_USER_PASSWORD'),
+        #                                       database=config('DB_NAME'),
+        #                                       host=config('DB_HOST'),
+        #                                       port=config('DB_PORT')
+        #                                       )
