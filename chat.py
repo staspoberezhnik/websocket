@@ -168,6 +168,7 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
         self.connections.pop(self.get_current_user())
 
 
+
 def make_app():
     return tornado.web.Application([
         (r"/", MainHandler),
