@@ -30,19 +30,25 @@ class MainHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
-            db_connection = await asyncpg.connect(user=config('DB_USER'),
-                                                  password=config('DB_USER_PASSWORD'),
-                                                  database=config('DB_NAME'),
-                                                  host=config('DB_HOST'),
-                                                  port=config('DB_PORT')
-                                                  )
-            values = await db_connection.fetch('''SELECT sender,
+            # db_connection = await asyncpg.connect(user=config('DB_USER'),
+            #                                       password=config('DB_USER_PASSWORD'),
+            #                                       database=config('DB_NAME'),
+            #                                       host=config('DB_HOST'),
+            #                                       port=config('DB_PORT')
+            #                                       )
+            async with get_db_pool() as con:
+                result = await con.fetch('''SELECT sender,
              message, date_created FROM chat where reciever is NULL''')
+                print(result)
+
+            # print(res)
+            # values = await db_connection.fetch('''SELECT sender,
+            #  message, date_created FROM chat where reciever is NULL''')
 
             users = []
             name = tornado.escape.xhtml_escape(self.get_current_user())
             users.append(name)
-            self.render("base.html", users=users, data=values)
+            self.render("base.html", users=users, data=result)
 
 
 class LoginHandler(BaseHandler):
