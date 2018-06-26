@@ -8,21 +8,46 @@ import datetime
 from decouple import config
 
 
-
 class BaseHandler(tornado.web.RequestHandler):
 
     def get_current_user(self):
         user = self.get_secure_cookie('user')
         return escape.xhtml_escape(user) if user else None
 
-    def get_db_pool(self):
-        return asyncpg.create_pool(
+    async def get_db_pool(self):
+        return await asyncpg.create_pool(
             user=config('DB_USER'),
             password=config('DB_USER_PASSWORD'),
             database=config('DB_NAME'),
             host=config('DB_HOST'),
             port=config('DB_PORT')
         )
+
+    async def select(self, query, params=None):
+        if params:
+            for key, value in params.items():
+                if value is None:
+                    value = 'Null'
+                    params[key] = value
+        if params:
+            query = query % params
+        print(query)
+        pool = await self.get_db_pool()
+        async with pool.acquire() as conn:
+            res = await conn.fetch(query)
+            return res
+
+    async def insert(self, query, params=None):
+        print(query)
+
+        if params:
+            query = query.format(params['sender'], params['message'], params['date_created'])
+
+        print(query)
+        pool = await self.get_db_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(query)
+
 
 
 class MainHandler(BaseHandler):
@@ -31,15 +56,18 @@ class MainHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
+            res = await self.select('''SELECT sender,
+             message, date_created FROM chat where reciever is %(receiver)s''', params=dict(receiver=None))
+            # print(res)
 
-            async with self.get_db_pool() as con:
-                result = await con.fetch('''SELECT sender,
-             message, date_created FROM chat where reciever is NULL''')
+            # async with self.get_db_pool() as con:
+            #     result = await con.fetch('''SELECT sender,
+            #  message, date_created FROM chat where reciever is NULL''')
 
             users = []
             name = tornado.escape.xhtml_escape(self.get_current_user())
             users.append(name)
-            self.render("base.html", users=users, data=result)
+            self.render("base.html", users=users, data=res)
 
 
 class LoginHandler(BaseHandler):
@@ -73,12 +101,17 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 
         [client.write_message(message) for client in self.connections]
         data = tornado.escape.json_decode(message)
-        async with self.get_db_pool() as con:
-            await con.execute(
-                '''INSERT INTO chat( sender, message, date_created) VALUES($1, $2, $3)''',
-                data['user'],
-                data['message'],
-                datetime.datetime.now())
+        # async with self.get_db_pool() as con:
+        #     await con.execute(
+        #         '''INSERT INTO chat( sender, message, date_created) VALUES($1, $2, $3)''',
+        #         data['user'],
+        #         data['message'],
+        #         datetime.datetime.now())
+        await self.insert('''INSERT INTO chat( sender, message, date_created)
+                              VALUES({}, {}, {})''',
+                            params=dict(sender=data['user'],
+                                        message=data['message'],
+                                        date_created=datetime.datetime.now()))
 
     def on_close(self):
         self.connections.remove(self)
@@ -96,9 +129,12 @@ class PrivateHandler(BaseHandler):
             else:
                 filtered_values = []
 
-                async with self.get_db_pool() as con:
-                    values = await con.fetch('''SELECT sender, reciever, message,
-                                                          date_created FROM chat''')
+                # async with self.get_db_pool() as con:
+                #     values = await con.fetch('''SELECT sender, reciever, message,
+                #                                           date_created FROM chat''')
+                values = await self.select('''SELECT sender, reciever, message,
+                                                           date_created FROM chat''')
+                print(values)
 
                 for value in values:
                     if value['sender'] == self.get_current_user() and value['reciever'] == user:
@@ -144,21 +180,17 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
 class MakeApp(tornado.web.Application):
 
     def __init__(self):
-
         handlers = [
-        (r"/", MainHandler),
-        (r"/login", LoginHandler),
-        (r'/logout', LogoutHandler),
-        (r"/websocket", SimpleWebSocket),
-        (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
-        (r"/send_private", SendToUser),
+            (r"/", MainHandler),
+            (r"/login", LoginHandler),
+            (r'/logout', LogoutHandler),
+            (r"/websocket", SimpleWebSocket),
+            (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
+            (r"/send_private", SendToUser),
                     ]
-
         settings = dict(
                     cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-
                         )
-
         super(MakeApp, self).__init__(handlers, **settings)
 
 

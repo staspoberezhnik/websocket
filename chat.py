@@ -18,14 +18,11 @@ def get_db_pool():
     )
 
 
-
 class BaseHandler(tornado.web.RequestHandler):
 
     def get_current_user(self):
         user = self.get_secure_cookie('user')
         return escape.xhtml_escape(user) if user else None
-
-
 
 
 class MainHandler(BaseHandler):
@@ -39,8 +36,7 @@ class MainHandler(BaseHandler):
                 result = await con.fetch('''SELECT sender,
              message, date_created FROM chat where reciever is NULL''')
 
-            # values = await db_connection.fetch('''SELECT sender,
-            #  message, date_created FROM chat where reciever is NULL''')
+
 
             users = []
             name = tornado.escape.xhtml_escape(self.get_current_user())
