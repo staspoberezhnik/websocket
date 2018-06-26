@@ -2,20 +2,10 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 import asyncpg
-
+import tornado.platform.asyncio
 from tornado import escape
 import datetime
 from decouple import config
-
-
-def get_db_pool():
-    return asyncpg.create_pool(
-        user=config('DB_USER'),
-        password=config('DB_USER_PASSWORD'),
-        database=config('DB_NAME'),
-        host=config('DB_HOST'),
-        port=config('DB_PORT')
-    )
 
 
 
@@ -25,7 +15,14 @@ class BaseHandler(tornado.web.RequestHandler):
         user = self.get_secure_cookie('user')
         return escape.xhtml_escape(user) if user else None
 
-
+    def get_db_pool(self):
+        return asyncpg.create_pool(
+            user=config('DB_USER'),
+            password=config('DB_USER_PASSWORD'),
+            database=config('DB_NAME'),
+            host=config('DB_HOST'),
+            port=config('DB_PORT')
+        )
 
 
 class MainHandler(BaseHandler):
@@ -35,12 +32,9 @@ class MainHandler(BaseHandler):
             self.redirect("/login")
         else:
 
-            async with get_db_pool() as con:
+            async with self.get_db_pool() as con:
                 result = await con.fetch('''SELECT sender,
              message, date_created FROM chat where reciever is NULL''')
-
-            # values = await db_connection.fetch('''SELECT sender,
-            #  message, date_created FROM chat where reciever is NULL''')
 
             users = []
             name = tornado.escape.xhtml_escape(self.get_current_user())
@@ -79,13 +73,12 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 
         [client.write_message(message) for client in self.connections]
         data = tornado.escape.json_decode(message)
-
-        async with get_db_pool() as con:
-            await con.execute('''
-                INSERT INTO chat( sender, message, date_created) VALUES($1, $2, $3)
-            ''', data['user'],
-                 data['message'],
-                 datetime.datetime.now())
+        async with self.get_db_pool() as con:
+            await con.execute(
+                '''INSERT INTO chat( sender, message, date_created) VALUES($1, $2, $3)''',
+                data['user'],
+                data['message'],
+                datetime.datetime.now())
 
     def on_close(self):
         self.connections.remove(self)
@@ -102,14 +95,10 @@ class PrivateHandler(BaseHandler):
                 self.redirect('/')
             else:
                 filtered_values = []
-                db_connection = await asyncpg.connect(user=config('DB_USER'),
-                                                      password=config('DB_USER_PASSWORD'),
-                                                      database=config('DB_NAME'),
-                                                      host=config('DB_HOST'),
-                                                      port=config('DB_PORT')
-                                                      )
-                values = await db_connection.fetch('''SELECT sender, reciever, message,
-                 date_created FROM chat''')
+
+                async with self.get_db_pool() as con:
+                    values = await con.fetch('''SELECT sender, reciever, message,
+                                                          date_created FROM chat''')
 
                 for value in values:
                     if value['sender'] == self.get_current_user() and value['reciever'] == user:
@@ -140,46 +129,46 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
         if sender:
             sender.write_message(message)
 
-        db_connection = await asyncpg.connect(user=config('DB_USER'),
-                                              password=config('DB_USER_PASSWORD'),
-                                              database=config('DB_NAME'),
-                                              host=config('DB_HOST'),
-                                              port=config('DB_PORT')
-                                              )
-        await db_connection.execute('''
-                        INSERT INTO chat( sender,reciever, message, date_created) VALUES($1, $2, $3, $4)
-                    ''', data['user'],
-                         data['send_to'],
-                         data['message'],
-                         datetime.datetime.now())
-
-        await db_connection.close()
+        async with self.get_db_pool() as con:
+            await con.execute('''
+                        INSERT INTO chat( sender,reciever, message, date_created) VALUES($1, $2, $3, $4)''',
+                              data['user'],
+                              data['send_to'],
+                              data['message'],
+                              datetime.datetime.now())
 
     def on_close(self):
         self.connections.pop(self.get_current_user())
 
 
-def make_app():
-    return tornado.web.Application([
+class MakeApp(tornado.web.Application):
+
+    def __init__(self):
+
+        handlers = [
         (r"/", MainHandler),
         (r"/login", LoginHandler),
         (r'/logout', LogoutHandler),
         (r"/websocket", SimpleWebSocket),
         (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
         (r"/send_private", SendToUser),
-    ],
-        cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-    )
+                    ]
+
+        settings = dict(
+                    cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+
+                        )
+
+        super(MakeApp, self).__init__(handlers, **settings)
 
 
-if __name__ == "__main__":
-    app = make_app()
+def main():
+
+    app = MakeApp()
     app.listen(config('PORT'))
     tornado.ioloop.IOLoop.current().start()
 
-# db_connection = await asyncpg.connect(user=config('DB_USER'),
-        #                                       password=config('DB_USER_PASSWORD'),
-        #                                       database=config('DB_NAME'),
-        #                                       host=config('DB_HOST'),
-        #                                       port=config('DB_PORT')
-        #                                       )
+
+if __name__ == "__main__":
+    main()
+
