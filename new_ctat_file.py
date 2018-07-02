@@ -5,8 +5,14 @@ import asyncpg
 import tornado.platform.asyncio
 from tornado import escape
 import datetime
-import re
 from decouple import config
+import string
+
+valid_chars = 'abcdefghijklmnopqrstuvwxyz' \
+             'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' \
+             'ЙЦУКЕНГШЩЗХЪЭЖДЛОРПАВЫФЯЧСМИТЬБЮЁ' \
+             'ёйцукенгшщзхъэждлорпавыфячсмитьбю'
+
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -83,8 +89,15 @@ class LoginHandler(BaseHandler):
             self.render('login.html', users=users, data=value)
 
     def post(self):
+        flag = True
         user = tornado.escape.xhtml_unescape(self.get_argument("name"))
-        if user.isalnum():
+        for char in user:
+            if char in valid_chars:
+                continue
+            else:
+                flag = False
+                break
+        if flag:
             self.set_secure_cookie("user", tornado.escape.xhtml_unescape(self.get_argument("name")))
             self.redirect("/")
         else:
@@ -111,7 +124,7 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 
         [client.write_message(message) for client in self.connections]
         data = tornado.escape.json_decode(message)
-
+        print(data)
 
         await self.insert(
             table='chat',
