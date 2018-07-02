@@ -64,12 +64,19 @@
 
         <div>
         {% if data %}
-        <h4>History message: <br></h4>
+        <h4>Your messages: <br></h4>
         {% for value in data %}
             {{ value['sender']}} SAY : {{ value['message'] }} AT : {{ value['date_created'].strftime("%Y-%m-%d-%H-%M-%S") }}<br>
             {% end %}
         {% end %}
         </div>
-
+        <div>
+        {% if received_data %}
+        <h4>Your opponent messages:<br></h4>
+        {% for value in received_data %}
+            {{ value['sender']}} SAY : {{ value['message'] }} AT : {{ value['date_created'].strftime("%Y-%m-%d-%H-%M-%S") }}<br>
+            {% end %}
+        {% end %}
+        </div>
 </body>
 </html>
