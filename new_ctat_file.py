@@ -13,7 +13,7 @@ class BaseHandler(tornado.web.RequestHandler):
 
     def get_current_user(self):
         user = self.get_secure_cookie('user')
-        return escape.xhtml_escape(user) if user else None
+        return escape.xhtml_unescape(user) if user else None
 
     async def get_db_pool(self):
         return await asyncpg.create_pool(
@@ -32,7 +32,7 @@ class BaseHandler(tornado.web.RequestHandler):
                     params[key] = value
         if params:
             query = query % params
-        print(query)
+        # print(query)
         pool = await self.get_db_pool()
         async with pool.acquire() as conn:
             res = await conn.fetch(query)
@@ -52,7 +52,6 @@ class BaseHandler(tornado.web.RequestHandler):
                 value = "'%s'" % value
             values.append(value)
         query = query % dict(table=table, columns=', '.join(columns), values=', '.join(values))
-        print(query)
         pool = await self.get_db_pool()
         async with pool.acquire() as conn:
             await conn.execute(query)
@@ -64,11 +63,11 @@ class MainHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
-            print(self.get_current_user())
+
             res = await self.select('''SELECT sender,
              message, date_created FROM chat where reciever is %(receiver)s''', params=dict(receiver=None))
             users = []
-            name = tornado.escape.xhtml_escape(self.get_current_user())
+            name = tornado.escape.xhtml_unescape(self.get_current_user())
             users.append(name)
 
             self.render("base.html", users=users, data=res)
@@ -76,13 +75,20 @@ class MainHandler(BaseHandler):
 
 class LoginHandler(BaseHandler):
     def get(self):
-        users = []
-        value = []
-        self.render('login.html', users=users, data=value)
+        if self.current_user:
+            self.redirect('/')
+        else:
+            users = []
+            value = []
+            self.render('login.html', users=users, data=value)
 
     def post(self):
-        self.set_secure_cookie("user", self.get_argument("name"))
-        self.redirect("/")
+        user = tornado.escape.xhtml_unescape(self.get_argument("name"))
+        if user.isalnum():
+            self.set_secure_cookie("user", tornado.escape.xhtml_unescape(self.get_argument("name")))
+            self.redirect("/")
+        else:
+            self.redirect('/login')
 
 
 class LogoutHandler(BaseHandler):
@@ -106,10 +112,11 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
         [client.write_message(message) for client in self.connections]
         data = tornado.escape.json_decode(message)
 
+
         await self.insert(
             table='chat',
             params=dict(
-                sender=data['user'],
+                sender=tornado.escape.xhtml_unescape(data['user']),
                 message=data['message'],
                 date_created=datetime.datetime.now()
             )
@@ -122,6 +129,9 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 class PrivateHandler(BaseHandler):
 
     async def get(self, user):
+        user_1 = tornado.escape.url_unescape(user)
+        print(user_1)
+
         if not self.current_user:
             self.redirect("/login")
 
@@ -129,10 +139,12 @@ class PrivateHandler(BaseHandler):
             if user == self.get_current_user():
                 self.redirect('/')
             else:
+                print(user)
                 filtered_values = []
+                received_values = []
                 values = await self.select('''SELECT sender, reciever,
                                             message,date_created FROM chat''')
-                received_values = []
+
                 for value in values:
                     if value['sender'] == self.get_current_user() and value['reciever'] == user:
                         filtered_values.append(value)
@@ -158,8 +170,10 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
 
     async def on_message(self, message):
         data = tornado.escape.json_decode(message)
+        print(data)
+
         receiver = self.connections.get(data['send_to'])
-        sender = self.connections.get(data['user'])
+        sender = self.connections.get(tornado.escape.xhtml_unescape(data['user']))
         if receiver:
             receiver.write_message(message)
         if sender:
@@ -168,7 +182,7 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
         await self.insert(
             table='chat',
             params=dict(
-                sender=data['user'],
+                sender=tornado.escape.xhtml_unescape(data['user']),
                 reciever=data['send_to'],
                 message=data['message'],
                 date_created=datetime.datetime.now()))
