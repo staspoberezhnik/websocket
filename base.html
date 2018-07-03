@@ -4,12 +4,14 @@
     <title>Chat application</title>
 </head>
 <body>
+
+
     <div style="width:100%; padding: 20px; overflow-y: scroll;">
     <div id="messages"></div>
         <div class="col-md-12 text-center">
-            {% if not current_user %}
-            <h1>Please sign in</h1>
-            Only letters, digits and _- allowed
+            {% block register %}
+            {% end %}
+            {% block login%}
             {% end %}
         </div>
         {% if current_user %}

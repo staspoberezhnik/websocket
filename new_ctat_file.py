@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
@@ -6,7 +9,11 @@ import tornado.platform.asyncio
 from tornado import escape
 import datetime
 from decouple import config
-import string
+import hashlib
+
+from tornado.options import options
+
+logger = logging.getLogger()
 
 valid_chars = 'abcdefghijklmnopqrstuvwxyz' \
              'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' \
@@ -14,21 +21,10 @@ valid_chars = 'abcdefghijklmnopqrstuvwxyz' \
              'ёйцукенгшщзхъэждлорпавыфячсмитьбю'
 
 
-
 class BaseHandler(tornado.web.RequestHandler):
-
     def get_current_user(self):
         user = self.get_secure_cookie('user')
         return escape.xhtml_unescape(user) if user else None
-
-    async def get_db_pool(self):
-        return await asyncpg.create_pool(
-            user=config('DB_USER'),
-            password=config('DB_USER_PASSWORD'),
-            database=config('DB_NAME'),
-            host=config('DB_HOST'),
-            port=config('DB_PORT')
-        )
 
     async def select(self, query, params=None):
         if params:
@@ -38,11 +34,9 @@ class BaseHandler(tornado.web.RequestHandler):
                     params[key] = value
         if params:
             query = query % params
-        # print(query)
-        pool = await self.get_db_pool()
-        async with pool.acquire() as conn:
+        async with self.application.pool.acquire() as conn:
             res = await conn.fetch(query)
-            return res
+        return res
 
     async def insert(self, table, params):
         query = "insert into %(table)s (%(columns)s) values (%(values)s);"
@@ -58,8 +52,7 @@ class BaseHandler(tornado.web.RequestHandler):
                 value = "'%s'" % value
             values.append(value)
         query = query % dict(table=table, columns=', '.join(columns), values=', '.join(values))
-        pool = await self.get_db_pool()
-        async with pool.acquire() as conn:
+        async with self.application.pool.acquire() as conn:
             await conn.execute(query)
 
 
@@ -86,22 +79,42 @@ class LoginHandler(BaseHandler):
         else:
             users = []
             value = []
-            self.render('login.html', users=users, data=value)
+            errors = []
+            self.render('login.html', users=users, data=value, errors=errors)
 
-    def post(self):
+    async def post(self):
         flag = True
-        user = tornado.escape.xhtml_unescape(self.get_argument("name"))
-        for char in user:
+        users = []
+        value = []
+        errors = []
+        username = self.get_argument("name", "")
+        password = self.get_argument("password", "")
+        hash_password = hashlib.sha256(password.encode())
+
+        for char in username:
             if char in valid_chars:
                 continue
             else:
                 flag = False
                 break
+        print(flag)
         if flag:
-            self.set_secure_cookie("user", tornado.escape.xhtml_unescape(self.get_argument("name")))
-            self.redirect("/")
+
+            res = await self.select('''SELECT username FROM users
+                where username = '%(username)s' and password = '%(password)s' ''',
+                                    params=dict(
+                                           username=username,
+                                           password=hash_password.hexdigest()))
+            if res:
+                print(res)
+                self.set_secure_cookie('user', res[0]['username'])
+                self.redirect("/")
+            else:
+                errors = 'User or Password did not match. Try again'
+                self.render('login.html', users=users, data=value, errors=errors)
         else:
-            self.redirect('/login')
+            errors = 'Incorrect letters in Username. Try again'
+            self.render('login.html', users=users, data=value, errors=errors)
 
 
 class LogoutHandler(BaseHandler):
@@ -109,6 +122,55 @@ class LogoutHandler(BaseHandler):
     def get(self):
         self.clear_cookie('user')
         self.redirect('/')
+
+
+class RegisterHandler(BaseHandler):
+    def get(self):
+        if self.current_user:
+            self.redirect('/')
+        else:
+            users = []
+            value = []
+            errors = []
+            self.render('register.html', users=users, data=value, errors=errors)
+
+    async def post(self):
+        users = []
+        value = []
+        flag = True
+        username = self.get_argument("username", "")
+        password = self.get_argument("password", "")
+
+        hash_password = hashlib.sha256(password.encode())
+
+        for char in username:
+            if char in valid_chars:
+                continue
+            else:
+                flag = False
+                break
+
+        if flag:
+            res = await self.select('''SELECT username FROM users
+                            where username = '%(username)s'  ''',
+                                    params=dict(
+                                        username=username))
+            if res:
+                errors = 'Current Username already in use. Choose another one'
+                self.render('register.html', users=users, data=value, errors=errors)
+            else:
+                await self.insert(
+                    table='users',
+                    params=dict(
+                        username=username,
+                        password=hash_password.hexdigest(),
+                    )
+                )
+                self.set_secure_cookie("user", self.get_argument("username"))
+                self.redirect("/")
+        else:
+            errors = 'Incorrect letters in Username. Try again'
+            self.render('register.html', users=users, data=value, errors=errors)
 
 
 class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
@@ -142,8 +204,6 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 class PrivateHandler(BaseHandler):
 
     async def get(self, user):
-        user_1 = tornado.escape.url_unescape(user)
-        print(user_1)
 
         if not self.current_user:
             self.redirect("/login")
@@ -152,7 +212,6 @@ class PrivateHandler(BaseHandler):
             if user == self.get_current_user():
                 self.redirect('/')
             else:
-                print(user)
                 filtered_values = []
                 received_values = []
                 values = await self.select('''SELECT sender, reciever,
@@ -183,7 +242,6 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
 
     async def on_message(self, message):
         data = tornado.escape.json_decode(message)
-        print(data)
 
         receiver = self.connections.get(data['send_to'])
         sender = self.connections.get(tornado.escape.xhtml_unescape(data['user']))
@@ -205,27 +263,40 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
 
 
 class MakeApp(tornado.web.Application):
+    pool = None
 
     def __init__(self):
         handlers = [
             (r"/", MainHandler),
+            (r"/register", RegisterHandler),
             (r"/login", LoginHandler),
             (r'/logout', LogoutHandler),
             (r"/websocket", SimpleWebSocket),
             (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
             (r"/send_private", SendToUser),
-                    ]
+        ]
         settings = dict(
                     cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
                         )
         super(MakeApp, self).__init__(handlers, **settings)
 
+    async def create_pool(self):
+        self.pool = await asyncpg.create_pool(
+            user=config('DB_USER'),
+            password=config('DB_USER_PASSWORD'),
+            database=config('DB_NAME'),
+            host=config('DB_HOST'),
+            port=config('DB_PORT')
+        )
+
 
 def main():
-
+    loop = asyncio.get_event_loop()
     app = MakeApp()
     app.listen(config('PORT'))
-    tornado.ioloop.IOLoop.current().start()
+    logger.warning('Starting server at http://%s:%s' % ('0.0.0.0', config('PORT')))
+    loop.run_until_complete(app.create_pool())
+    loop.run_forever()
 
 
 if __name__ == "__main__":

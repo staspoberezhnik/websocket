@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block register %}
+{% if not current_user %}
+<h2>Register page</h2>
+Only letters, digits and _- allowed in username
+<form action="/register" method="post" id="login_form">
+    {% module xsrf_form_html() %}
+
+        <label for="username">Username</label><br>
+        <input class="text-input" id="username" name="username" type="text" value="" required>
+
+        <div>
+        <label for="password">Password</label><br>
+        <input class="text-input" id="password" name="password" type="password" value="" required>
+        </div>
+
+        <button type="submit" class="btn btn-default">Register</button>
+</form>
+{% if errors %}
+<h2>{{errors}}</h2>
+{% end %}
+
+{% end %}
+{% end %}
