@@ -15,6 +15,7 @@ from tornado.options import options
 
 logger = logging.getLogger()
 
+print(config('SALT'))
 valid_chars = 'abcdefghijklmnopqrstuvwxyz' \
              'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' \
              'ЙЦУКЕНГШЩЗХЪЭЖДЛОРПАВЫФЯЧСМИТЬБЮЁ' \
@@ -89,7 +90,7 @@ class LoginHandler(BaseHandler):
         errors = []
         username = self.get_argument("name", "")
         password = self.get_argument("password", "")
-        hash_password = hashlib.sha256(password.encode())
+        hash_password = hashlib.sha256((password + config('SALT')).encode())
 
         for char in username:
             if char in valid_chars:
@@ -97,7 +98,6 @@ class LoginHandler(BaseHandler):
             else:
                 flag = False
                 break
-        print(flag)
         if flag:
 
             res = await self.select('''SELECT username FROM users
@@ -141,7 +141,7 @@ class RegisterHandler(BaseHandler):
         username = self.get_argument("username", "")
         password = self.get_argument("password", "")
 
-        hash_password = hashlib.sha256(password.encode())
+        hash_password = hashlib.sha256((password + config('SALT')).encode())
 
         for char in username:
             if char in valid_chars:
