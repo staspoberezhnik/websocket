@@ -6,7 +6,7 @@ import asyncpg
 import tornado.platform.asyncio
 from decouple import config
 from chat.handlers import MainHandler, RegisterHandler, LoginHandler, LogoutHandler, SimpleWebSocket, PrivateHandler, \
-    SendToUser, FriendsListHandler
+    SendToUser, NotificationHandler
 
 logger = logging.getLogger()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +24,7 @@ class MakeApp(tornado.web.Application):
             (r"/websocket", SimpleWebSocket),
             (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
             (r"/send_private", SendToUser),
-            (r"/friends", FriendsListHandler),
+            (r"/friends", NotificationHandler),
 
         ]
         settings = dict(

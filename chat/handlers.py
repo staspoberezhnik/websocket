@@ -260,7 +260,7 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
         self.connections.pop(self.get_current_user())
 
 
-class FriendsListHandler(BaseHandler):
+class NotificationHandler(BaseHandler):
     async def get(self):
         if not self.current_user:
             self.redirect("/login")
@@ -268,6 +268,5 @@ class FriendsListHandler(BaseHandler):
             users = []
             res = []
             name = tornado.escape.xhtml_unescape(self.get_current_user())
-            users.append(name)
 
             self.render("friends_list.html", users=users, data=res)
