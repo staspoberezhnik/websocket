@@ -1,25 +1,12 @@
-import asyncio
-import logging
-
+from chat.utils import valid_chars
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-import asyncpg
 import tornado.platform.asyncio
 from tornado import escape
 import datetime
 from decouple import config
 import hashlib
-
-from tornado.options import options
-
-logger = logging.getLogger()
-
-print(config('SALT'))
-valid_chars = 'abcdefghijklmnopqrstuvwxyz' \
-             'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' \
-             'ЙЦУКЕНГШЩЗХЪЭЖДЛОРПАВЫФЯЧСМИТЬБЮЁ' \
-             'ёйцукенгшщзхъэждлорпавыфячсмитьбю'
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -66,11 +53,7 @@ class MainHandler(BaseHandler):
 
             res = await self.select('''SELECT sender,
              message, date_created FROM chat where reciever is %(receiver)s''', params=dict(receiver=None))
-            users = []
-            name = tornado.escape.xhtml_unescape(self.get_current_user())
-            users.append(name)
-
-            self.render("base.html", users=users, data=res)
+            self.render("base.html", data=res)
 
 
 class LoginHandler(BaseHandler):
@@ -106,7 +89,6 @@ class LoginHandler(BaseHandler):
                                            username=username,
                                            password=hash_password.hexdigest()))
             if res:
-                print(res)
                 self.set_secure_cookie('user', res[0]['username'])
                 self.redirect("/")
             else:
@@ -174,19 +156,18 @@ class RegisterHandler(BaseHandler):
 
 
 class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
-    connections = set()
+    connections = dict()
 
     def check_origin(self, origin):
         return True
 
     def open(self):
-        self.connections.add(self)
+        self.connections[self.get_current_user()] = self
+        self.send_message(message_type='online_users', message=self.get_online_users(), send_all=True)
 
     async def on_message(self, message):
-
-        [client.write_message(message) for client in self.connections]
+        self.send_message(message=message, send_all=True)
         data = tornado.escape.json_decode(message)
-        print(data)
 
         await self.insert(
             table='chat',
@@ -198,7 +179,19 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
         )
 
     def on_close(self):
-        self.connections.remove(self)
+        self.connections.pop(self.get_current_user())
+        self.send_message(message_type='online_users', message=self.get_online_users(), send_all=True)
+
+    def send_message(self, message, message_type='chat', send_all=False):
+        params = dict(message=dict(message_type=message_type, message=message))
+        if send_all:
+            for connection in self.connections.values():
+                connection.write_message(**params)
+        else:
+            self.write_message(**params)
+
+    def get_online_users(self):
+        return list(set(self.connections.keys()))
 
 
 class PrivateHandler(BaseHandler):
@@ -214,20 +207,25 @@ class PrivateHandler(BaseHandler):
             else:
                 filtered_values = []
                 received_values = []
-                values = await self.select('''SELECT sender, reciever,
-                                            message,date_created FROM chat''')
+                receiver = await self.select('''SELECT username FROM users where username = '%(receiver)s' ''',
+                                             params=dict(receiver=user))
+                print(receiver)
+                if receiver :
 
-                for value in values:
-                    if value['sender'] == self.get_current_user() and value['reciever'] == user:
-                        filtered_values.append(value)
-                    if value['reciever'] == self.get_current_user() and value['sender'] == user:
-                        received_values.append(value)
-                    else:
-                        continue
-                print(filtered_values)
-                print(received_values)
-                send_to_user = user
-                self.render("private.html", send_to=send_to_user, data=filtered_values, received_data=received_values)
+                    values = await self.select('''SELECT sender, reciever,
+                                                message,date_created FROM chat''')
+
+                    for value in values:
+                        if value['sender'] == self.get_current_user() and value['reciever'] == user:
+                            filtered_values.append(value)
+                        if value['reciever'] == self.get_current_user() and value['sender'] == user:
+                            received_values.append(value)
+                        else:
+                            continue
+                    send_to_user = user
+                    self.render("private.html", send_to=send_to_user, data=filtered_values, received_data=received_values)
+                else:
+                    self.redirect('/')
 
 
 class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
@@ -262,43 +260,14 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
         self.connections.pop(self.get_current_user())
 
 
-class MakeApp(tornado.web.Application):
-    pool = None
+class FriendsListHandler(BaseHandler):
+    async def get(self):
+        if not self.current_user:
+            self.redirect("/login")
+        else:
+            users = []
+            res = []
+            name = tornado.escape.xhtml_unescape(self.get_current_user())
+            users.append(name)
 
-    def __init__(self):
-        handlers = [
-            (r"/", MainHandler),
-            (r"/register", RegisterHandler),
-            (r"/login", LoginHandler),
-            (r'/logout', LogoutHandler),
-            (r"/websocket", SimpleWebSocket),
-            (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
-            (r"/send_private", SendToUser),
-        ]
-        settings = dict(
-                    cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-                        )
-        super(MakeApp, self).__init__(handlers, **settings)
-
-    async def create_pool(self):
-        self.pool = await asyncpg.create_pool(
-            user=config('DB_USER'),
-            password=config('DB_USER_PASSWORD'),
-            database=config('DB_NAME'),
-            host=config('DB_HOST'),
-            port=config('DB_PORT')
-        )
-
-
-def main():
-    loop = asyncio.get_event_loop()
-    app = MakeApp()
-    app.listen(config('PORT'))
-    logger.warning('Starting server at http://%s:%s' % ('0.0.0.0', config('PORT')))
-    loop.run_until_complete(app.create_pool())
-    loop.run_forever()
-
-
-if __name__ == "__main__":
-    main()
-
+            self.render("friends_list.html", users=users, data=res)
