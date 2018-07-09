@@ -1,23 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<h1>No friends</h1>
+{% if friends %}
+{% for friend in friends %}
+<h2>Your friends</h2>
+<h3><a href="/privatmessage/{{friend['username']}}/">{{friend['username']}}</a></h3>
+{% end%}
+{% end%}
+{% if not friends %}
+<h4>No friends yet</h4>
+{% end %}
 
 {% end %}
-ws.onmessage = function(evt) {
-        var messageDict = JSON.parse(evt.data);
-        // Create a div with the format `user: message`.
-        if (messageDict.message_type == 'chat') {
-            var message = JSON.parse(messageDict.message);
-            var messageBox = document.createElement("div");
-            messageBox.innerHTML = message.user + ": " + message.message;
-            document.getElementById("messages").appendChild(messageBox);
-        } else if (messageDict.message_type == 'online_users') {
-            var usersDiv = document.getElementById("onlineUsers");
-            messageDict.message.forEach(function(element) {
-              var link = document.createElement("span");
-              link.innerHTML = element;
-              usersDiv.appendChild(link);
-            })
-        }
-    };
+

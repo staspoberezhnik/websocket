@@ -36,7 +36,7 @@
 
             <li><a href='/'>Group chat</a></li>
             <li><a href='/friends '>Notifications</a></li>
-            <li><a href=''>Users in chat</a></li>
+            <li><a href='all_users'>All Users</a></li>
 
               {% if current_user %}
                 <li><a href="/logout">Log out "{{ current_user }}"</a></li>
@@ -112,19 +112,20 @@
     };
     </script>
     {% end %}
+        {% if current_user %}
         <div id="onlineUsers">
             users in chat:
 
             <div id="link">  </div>
         </div>
-
+        {% end %}
         {% if current_user %}
         <h4>You are signed as <b class="text-success"><i class="glyphicon glyphicon-user"></i> {{ current_user }}</b> (<a href="/logout">logout</a>).</h4>
         {% end %}
 
 <div class="container">
     <div class="col-xs-12 col-sm-6">
-     <div class="container">{% block content %}{% end %}</div>
+     <div class="container">{% block content %}    {% end %}</div>
 
 
         </div>
