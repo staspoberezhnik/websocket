@@ -54,107 +54,108 @@
 
 
     <div style="width:100%; padding: 20px; overflow-y: auto;">
-    <h3><div id="messages">  </div></h3>
-        <div class="container">
-            {% block register %}
+            {% if current_user %}
+            <h3>
+                <div id="messages">  </div>
+            </h3>
             {% end %}
-            {% block login%}
+                {% block register %}
+                {% end %}
+                {% block login%}
+                {% end %}
+
+            {% if current_user %}
+
+                <div style="padding-top: 20px;">
+                    <form onsubmit="return sendMessage()",>
+                        <input id="message" type="text" style="width: 70%;"><button style="width: 25%">Send</button>
+                    </form>
+                </div>
+
             {% end %}
-        </div>
         {% if current_user %}
+            <script>
+                var ws = new WebSocket("ws://127.0.0.1:8888/websocket");
+                var username = '{{current_user}}'
 
-    <div style="padding-top: 20px;">
-        <form onsubmit="return sendMessage()",>
-            <input id="message" type="text" style="width: 70%;"><button style="width: 25%">Send</button>
-        </form>
-    </div>
+                function sendMessage() {
+                    var messageInput = document.getElementById("message");
+                    var message = messageInput.value;
+                    var payload = {
+                        "message": message,
+                        "user": username
+                    }
+                    // Make the request to the WebSocket.
+                    ws.send(JSON.stringify(payload));
+                    // Clear the message from the input.
+                    messageInput.value = "";
+                    return false;
+                }
 
+                ws.onmessage = function(evt) {
+                    var messageDict = JSON.parse(evt.data);
+                    // Create a div with the format `user: message`.
+                    if (messageDict.message_type == 'chat') {
+                        var message = JSON.parse(messageDict.message);
+                        var messageBox = document.createElement("div");
+                        messageBox.innerHTML = message.user + ": " + message.message;
+                        document.getElementById("messages").appendChild(messageBox);
+                    } else if (messageDict.message_type == 'online_users') {
+                        var linkDiv = document.getElementById("link");
+                        linkDiv.innerHTML = "";
+
+                        messageDict.message.forEach(function(element) {
+                            var createA = document.createElement('a');
+                            createA.setAttribute('href', "/privatmessage/" + element + "/");
+                            createA.innerHTML = element + ' ';
+                            linkDiv.append(createA);
+                        })
+                    }
+                };
+            </script>
         {% end %}
         {% if current_user %}
+            <div id="onlineUsers">
+                users in chat:
 
-    <script>
-    var ws = new WebSocket("ws://127.0.0.1:8888/websocket");
-    var username = '{{current_user}}'
-
-    function sendMessage() {
-        var messageInput = document.getElementById("message");
-        var message = messageInput.value;
-        var payload = {
-            "message": message,
-            "user": username
-        }
-        // Make the request to the WebSocket.
-        ws.send(JSON.stringify(payload));
-        // Clear the message from the input.
-        messageInput.value = "";
-        return false;
-    }
-
-    ws.onmessage = function(evt) {
-        var messageDict = JSON.parse(evt.data);
-        // Create a div with the format `user: message`.
-        if (messageDict.message_type == 'chat') {
-            var message = JSON.parse(messageDict.message);
-            var messageBox = document.createElement("div");
-            messageBox.innerHTML = message.user + ": " + message.message;
-            document.getElementById("messages").appendChild(messageBox);
-        } else if (messageDict.message_type == 'online_users') {
-            var linkDiv = document.getElementById("link");
-            linkDiv.innerHTML = "";
-
-            messageDict.message.forEach(function(element) {
-                var createA = document.createElement('a');
-                createA.setAttribute('href', "/privatmessage/" + element + "/");
-                createA.innerHTML = element + ' ';
-                linkDiv.append(createA);
-            })
-        }
-    };
-    </script>
-    {% end %}
-        {% if current_user %}
-        <div id="onlineUsers">
-            users in chat:
-
-            <div id="link">  </div>
-        </div>
+                <div id="link">  </div>
+            </div>
         {% end %}
         {% if current_user %}
-        <h4>You are signed as <b class="text-success"><i class="glyphicon glyphicon-user"></i> {{ current_user }}</b> (<a href="/logout">logout</a>).</h4>
+            <h4>You are signed as <b class="text-success">
+                <i class="glyphicon glyphicon-user"></i>{{ current_user }}</b> (<a href="/logout">logout</a>).
+            </h4>
         {% end %}
 
-<div class="container">
-    <div class="col-xs-12 col-sm-6">
-     <div class="container">{% block content %}    {% end %}</div>
+            <div class="container">
+                <div class="col-xs-12 col-sm-6">
+                    <div class="container">{% block content %}    {% end %}</div>
+                </div>
+                <div>
+                    {% if data %}
+                       <h3 align="center">History message: <br></h3>
 
-
-        </div>
-        <div>
-        {% if data %}
-        <h3 align="center">History message: <br></h3>
-
-        <table class="table table-condensed" >
-          <thead>
-            <tr>
-              <th scope="col">Username</th>
-              <th scope="col">Message</th>
-              <th scope="col">Date created</th>
-            </tr>
-          </thead>
-            <tbody>
-             {% for value in data %}
-                    <tr>
-                        <td ><b>{{ value['sender']}}</b></td>
-                      <td >{{ value['message'] }}</td>
-                      <td>{{ value['date_created'].strftime("%d-%m-%Y--%H:%M") }}</td>
-                    </tr>
-             {% end %}
-
-            </tbody>
-        </table>
-        {% end %}
-    </div>
-        </div>
+                      <table class="table table-condensed" >
+                        <thead>
+                            <tr>
+                              <th scope="col">Username</th>
+                              <th scope="col">Message</th>
+                              <th scope="col">Date created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                          {% for value in data %}
+                           <tr>
+                             <td ><b>{{ value['sender']}}</b></td>
+                             <td >{{ value['message'] }}</td>
+                             <td>{{ value['date_created'].strftime("%d-%m-%Y--%H:%M") }}</td>
+                           </tr>
+                          {% end %}
+                        </tbody>
+                      </table>
+                    {% end %}
+                </div>
+            </div>
     </div>
  <!-- Placed at the end of the document so the pages load faster -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>

@@ -30,7 +30,7 @@
           <ul class="nav navbar-nav">
 
             <li><a href='/'>Group chat</a></li>
-            <li><a href='/friends'>Friends</a></li>
+            <li><a href='/friends'>Notifications</a></li>
             <li><a href='/all_users'>All users</a></li>
 
               {% if current_user %}
@@ -68,7 +68,7 @@
         {% end %}
 
         {% if status == 'Friends' %}
-        <h4>{{send_to}} is your friend </h4>
+        <h4><b class="text-primary"> {{send_to}}</b> is your friend </h4>
         {% end %}
 
 
@@ -128,16 +128,15 @@
               <th scope="col">Date created</th>
             </tr>
           </thead>
-                <tbody>
-                  {% for value in data %}
-                    <tr>
-                    <td ><b>{{ value['sender']}}</b></td>
-                    <td >{{ value['message'] }}</td>
-                    <td>{{ value['date_created'].strftime("%d-%m-%Y--%H:%M") }}</td>
-                    </tr>
-                  {% end %}
-
-                </tbody>
+          <tbody>
+            {% for value in data %}
+             <tr>
+              <td ><b>{{ value['sender']}}</b></td>
+              <td >{{ value['message'] }}</td>
+              <td>{{ value['date_created'].strftime("%d-%m-%Y--%H:%M") }}</td>
+             </tr>
+            {% end %}
+          </tbody>
         </table>
         {% end %}
     </div>

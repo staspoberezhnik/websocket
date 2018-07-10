@@ -1,15 +1,36 @@
 {% extends 'base.html' %}
 {% block content %}
+<div class="container">
+    <div class="col-xs-12 col-sm-6">
+        {% if not friends %}
+        <h4>No friends yet</h4>
+        {% end %}
 
-{% if friends %}
-{% for friend in friends %}
-<h2>Your friends</h2>
-<h3><a href="/privatmessage/{{friend['username']}}/">{{friend['username']}}</a></h3>
-{% end%}
-{% end%}
-{% if not friends %}
-<h4>No friends yet</h4>
-{% end %}
+        {% if friends %}
+        <h2>Your friends</h2>
+        {% for friend in friends %}
 
+        <h4><a href="/privatmessage/{{friend['username']}}/">{{friend['username']}}</a></h4>
+        {% end%}
+        {% end%}
+    </div>
+     <div class="col-xs-12 col-sm-6">
+
+
+        {% if request_friends %}
+         <h2>Incoming friends request</h2>
+        {% for friend in request_friends %}
+
+         <h4><a href="/privatmessage/{{friend['username']}}/">{{ friend['username'] }}</a> want to add you to friends
+            <a href="/confirm/{{friend['username']}}/" class="btn-success">
+                Confirm
+            </a>
+        </h4>
+
+        {% end %}
+        {% end %}
+
+    </div>
+</div>
 {% end %}
 

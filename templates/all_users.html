@@ -46,31 +46,34 @@
         </div><!--/.nav-collapse -->
       </div>
     </nav>
-        {% if current_user %}
-     <h2 style="padding-top: 45px;" align="center">All users</h2>
-        {% end %}
-
-        {% if current_user %}
-        <h4>You are signed as <b class="text-success"><i class="glyphicon glyphicon-user"></i> {{ current_user }}</b> (<a href="/logout">logout</a>).</h4>
-        {% end %}
-
-<div class="container">
-    <div class="col-xs-12 col-sm-6">
-     <div class="container">{% block content %}{% end %}</div>
-
-       {% if users %}
-        {% for user in users %}
-       <h4> <a href="/privatmessage/{{user['username']}}/ "> {{user['username']}}</a></h4>
-
-        {% end %}
-        {% end %}
 
 
+            {% if current_user %}
+         <h2 style="padding-top: 45px;" align="center">All users</h2>
+            {% end %}
+
+    <div class="container">
+            {% if current_user %}
+            <h4>You are signed as <b class="text-success"><i class="glyphicon glyphicon-user"></i> {{ current_user }}</b> (<a href="/logout">logout</a>).</h4>
+            {% end %}
+
+        <div class="container">
+            <div class="col-xs-12 col-sm-6">
+                <div class="container">{% block content %}{% end %}</div>
+
+                {% if users %}
+                {% for user in users %}
+               <h4> <a href="/privatmessage/{{user['username']}}/ "> {{user['username']}}</a></h4>
+
+                {% end %}
+                {% end %}
 
 
-    </div>
+            </div>
+
         </div>
     </div>
+
  <!-- Placed at the end of the document so the pages load faster -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>

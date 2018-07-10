@@ -55,7 +55,6 @@ class BaseHandler(tornado.web.RequestHandler):
             await conn.execute(query)
 
 
-
 class MainHandler(BaseHandler):
 
     async def get(self):
@@ -224,9 +223,9 @@ class PrivateHandler(BaseHandler):
 
                 if receiver:
                     friend_one_id = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
-                                                   params=dict(username=self.current_user))
+                                                      params=dict(username=self.current_user))
                     friend_two_id = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
-                                                   params=dict(username=user))
+                                                      params=dict(username=user))
 
                     values = await self.select('''SELECT sender, reciever,
                                                 message,date_created FROM chat''')
@@ -241,9 +240,9 @@ class PrivateHandler(BaseHandler):
                         if status[0]['status'] == '1':
                             status = 'Friends'
                         elif status[0]['friend_one'] == friend_one_id[0]['id'] and status[0]['status'] == '0':
-                            status = 'Receive'
-                        else:
                             status = 'Send'
+                        else:
+                            status = 'Receive'
 
                     for value in values:
                         if value['sender'] == self.get_current_user() and value['reciever'] == user:
@@ -303,30 +302,47 @@ class NotificationHandler(BaseHandler):
             cur_id = await self.select(''' SELECT id FROM users where
                                              username = '%(username)s' ''',
                                        params=dict(username=self.get_current_user()))
-            print(cur_id)
+            # print(cur_id)
             friends = await self.select(''' SELECT friend_one, friend_two FROM friends where
-                                                         friend_one = '%(id_1)s' or friend_two = '%(id_1)s'
+                                                         (friend_one = '%(id_1)s' or friend_two = '%(id_1)s')
                                                           and status = '1'  ''',
                                         params=dict(id_1=cur_id[0]['id']))
-            
             list_id = []
             for friend in friends:
                 if friend['friend_one'] != cur_id[0]['id']:
                     list_id.append(friend['friend_one'])
-                    if friend['friend_two'] != cur_id[0]['id']:
-                        list_id.append(friend['friend_two'])
+                else:
+                    list_id.append(friend['friend_two'])
 
-            print(list_id)
             friends_name = []
             if list_id:
                 friends_name = await self.select(''' SELECT username FROM users where
-                                                         id =  any(array%(id)s) ''',
+                                                             id =  any(array%(id)s) ''',
                                                  params=dict(id=list_id))
-            print(friends_name)
+
+            request_friend = await self.select(''' SELECT friend_one FROM friends where
+                                                          friend_two = '%(id_1)s'
+                                                          and status = '0'  ''',
+                                               params=dict(id_1=cur_id[0]['id']))
+            request_id = []
+            for friend in request_friend:
+                if friend['friend_one'] != cur_id[0]['id']:
+                    request_id.append(friend['friend_one'])
+                else:
+                    request_id.append(friend['friend_two'])
+
+            request_friends_name = []
+            if request_id:
+                request_friends_name = await self.select(''' SELECT username FROM users where
+                                                             id =  any(array%(id)s) ''',
+                                                         params=dict(id=request_id))
             users = []
             res = []
-
-            self.render("friends_list.html", users=users, data=res, friends=friends_name)
+            self.render("friends_list.html",
+                        users=users,
+                        data=res,
+                        friends=friends_name,
+                        request_friends=request_friends_name)
 
 
 class AllUsersHandler(BaseHandler):
@@ -348,6 +364,7 @@ class InviteHandler(BaseHandler):
                                            params=dict(username=self.current_user))
             friend_two = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
                                            params=dict(username=user))
+
             await self.insert(
                 table='friends',
                 params=dict(
@@ -362,7 +379,6 @@ class AddToFriendsHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
-
             friend_one = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
                                            params=dict(username=self.current_user))
             friend_two = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
@@ -373,7 +389,4 @@ class AddToFriendsHandler(BaseHandler):
                 params=dict(
                     friend_one=str(friend_one[0]['id']),
                     friend_two=str(friend_two[0]['id'])))
-
             self.redirect('/')
-
-
