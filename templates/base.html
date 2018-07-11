@@ -19,7 +19,7 @@
     <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
     <link href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.7/journal/bootstrap.min.css" rel="stylesheet">
 
-
+    {% if current_user %}
     <nav class="navbar navbar-inverse navbar-fixed-top">
       <div class="container">
         <div class="navbar-header">
@@ -46,7 +46,7 @@
         </div><!--/.nav-collapse -->
       </div>
     </nav>
-
+{% end %}
 
         {% if current_user %}
      <h2 style="padding-top: 45px;" align="center">Group chat</h2>

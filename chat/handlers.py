@@ -81,7 +81,6 @@ class LoginHandler(BaseHandler):
         flag = True
         users = []
         value = []
-        errors = []
         username = self.get_argument("name", "")
         password = self.get_argument("password", "")
         hash_password = hashlib.sha256((password + config('SALT')).encode())
@@ -227,9 +226,6 @@ class PrivateHandler(BaseHandler):
                     friend_two_id = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
                                                       params=dict(username=user))
 
-                    values = await self.select('''SELECT sender, reciever,
-                                                message,date_created FROM chat''')
-
                     status = await self.select('''
                                  SELECT friend_one, friend_two,  status FROM friends where
                                  (friend_one = '%(friend_one)s' or friend_two = '%(friend_one)s')
@@ -244,6 +240,9 @@ class PrivateHandler(BaseHandler):
                         else:
                             status = 'Receive'
 
+                    values = await self.select('''SELECT sender, reciever,
+                                                                    message,date_created FROM chat''')
+
                     for value in values:
                         if value['sender'] == self.get_current_user() and value['reciever'] == user:
                             filtered_values.append(value)
@@ -251,6 +250,7 @@ class PrivateHandler(BaseHandler):
                             received_values.append(value)
                         else:
                             continue
+
                     send_to_user = user
                     self.render("private.html",
                                 send_to=send_to_user,
@@ -298,22 +298,23 @@ class NotificationHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
-
             cur_id = await self.select(''' SELECT id FROM users where
                                              username = '%(username)s' ''',
                                        params=dict(username=self.get_current_user()))
-            # print(cur_id)
-            friends = await self.select(''' SELECT friend_one, friend_two FROM friends where
-                                                         (friend_one = '%(id_1)s' or friend_two = '%(id_1)s')
-                                                          and status = '1'  ''',
-                                        params=dict(id_1=cur_id[0]['id']))
+
+            friends = await self.select(''' SELECT friend_one, friend_two FROM friends
+                                                                JOIN users
+                                                                ON ( friend_one = users.id or
+                                                                     friend_two = users.id ) and
+                                                                     friends.status = '1' and
+                                                                     users.username = '%(username)s'  ''',
+                                        params=dict(username=self.get_current_user()))
             list_id = []
             for friend in friends:
                 if friend['friend_one'] != cur_id[0]['id']:
                     list_id.append(friend['friend_one'])
                 else:
                     list_id.append(friend['friend_two'])
-
             friends_name = []
             if list_id:
                 friends_name = await self.select(''' SELECT username FROM users where
@@ -324,12 +325,10 @@ class NotificationHandler(BaseHandler):
                                                           friend_two = '%(id_1)s'
                                                           and status = '0'  ''',
                                                params=dict(id_1=cur_id[0]['id']))
+
             request_id = []
             for friend in request_friend:
-                if friend['friend_one'] != cur_id[0]['id']:
-                    request_id.append(friend['friend_one'])
-                else:
-                    request_id.append(friend['friend_two'])
+                request_id.append(friend['friend_one'])
 
             request_friends_name = []
             if request_id:
@@ -364,13 +363,11 @@ class InviteHandler(BaseHandler):
                                            params=dict(username=self.current_user))
             friend_two = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
                                            params=dict(username=user))
-
             await self.insert(
                 table='friends',
                 params=dict(
                     friend_one=str(friend_one[0]['id']),
                     friend_two=str(friend_two[0]['id'])))
-
             self.redirect('/')
 
 
@@ -385,6 +382,24 @@ class AddToFriendsHandler(BaseHandler):
                                            params=dict(username=user))
             await self.update(
                 '''UPDATE friends SET status='1' where (friend_one = '%(friend_one)s' or friend_two = '%(friend_one)s')
+                     and (friend_one = '%(friend_two)s' or friend_two = '%(friend_two)s') ''',
+                params=dict(
+                    friend_one=str(friend_one[0]['id']),
+                    friend_two=str(friend_two[0]['id'])))
+            self.redirect('/')
+
+
+class RemoveFromFriendsHandler(BaseHandler):
+    async def get(self, user):
+        if not self.current_user:
+            self.redirect("/login")
+        else:
+            friend_one = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
+                                           params=dict(username=self.current_user))
+            friend_two = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
+                                           params=dict(username=user))
+            await self.update(
+                '''UPDATE friends SET status='0' where (friend_one = '%(friend_one)s' or friend_two = '%(friend_one)s')
                      and (friend_one = '%(friend_two)s' or friend_two = '%(friend_two)s') ''',
                 params=dict(
                     friend_one=str(friend_one[0]['id']),

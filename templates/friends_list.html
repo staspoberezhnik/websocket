@@ -10,7 +10,8 @@
         <h2>Your friends</h2>
         {% for friend in friends %}
 
-        <h4><a href="/privatmessage/{{friend['username']}}/">{{friend['username']}}</a></h4>
+        <h4><a href="/privatmessage/{{friend['username']}}/" class="text-info">{{friend['username']}}</a>
+        <a href="/remove/{{friend['username']}}/">  Remove</a> </h4>
         {% end%}
         {% end%}
     </div>

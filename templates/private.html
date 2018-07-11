@@ -4,6 +4,7 @@
     <title>Chat application</title>
 </head>
 <body>
+{% if current_user %}
 
 <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -41,6 +42,7 @@
         </div><!--/.nav-collapse -->
       </div>
     </nav>
+{% end %}
 
     <h2 style="padding-top: 45px;" align="center">Private message chat</h2>
 
@@ -53,8 +55,8 @@
         </div>
         {% if current_user %}
 
-        <h3 class="text-success"><small class="text-default"> Sender</small> {{ current_user }}</h3>
-        <h3 class="text-success"><small class="text-default"> Receiver</small> {{ send_to }}</h3>
+        <h3 class="text-success"><small class="text-default"> Sender</small> {{ current_user }}<br>
+       <small class="text-default"> Receiver</small> {{ send_to }}</h3>
 
         {% if not status %}
         <a href='/invite/{{send_to}}/'>Invite ot friend </a>
@@ -64,11 +66,13 @@
         <h4>You send friend request </h4>
         {% end %}
         {% if status == 'Receive' %}
-        <h4>{{send_to}} want to add you to friends  <a href='/confirm/{{send_to}}/' class="btn-success">Confirm</a></h4>
+        <h4><b class="text-primary"> {{send_to}}</b> want to add you to friends  <a href='/confirm/{{send_to}}/' class="btn-success">Confirm</a></h4>
         {% end %}
 
         {% if status == 'Friends' %}
-        <h4><b class="text-primary"> {{send_to}}</b> is your friend </h4>
+        <h4><b class="text-primary"> {{send_to}}</b> is your friend</h4>
+        <h4>  <a href="/remove/{{send_to}}/">Remove from friends</a> </h4>
+
         {% end %}
 
 
