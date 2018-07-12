@@ -37,12 +37,13 @@
             <li><a href='/'>Group chat</a></li>
             <li><a href='/friends '>Notifications</a></li>
             <li><a href='all_users'>All Users</a></li>
-
+              <li id="online_friends">  </li>
+              <li class="active"><a href="#">private messages<span class="badge">42</span></a></li>
               {% if current_user %}
                 <li><a href="/logout">Log out "{{ current_user }}"</a></li>
               {% end %}
-
               </ul>
+
         </div><!--/.nav-collapse -->
       </div>
     </nav>
@@ -110,8 +111,20 @@
                             createA.innerHTML = element + ' ';
                             linkDiv.append(createA);
                         })
-                    }
-                };
+                    } else if (messageDict.message_type == 'online_friends'){
+                        var linkOnline = document.getElementById("online_friends");
+                        linkOnline.innerHTML = "";
+                        // <a href="" >requests<span class="badge"><div > </div> </span></a>
+                        // messageDict.message.forEach(function(element) {
+                            var createA = document.createElement('a');
+                            createA.setAttribute('href', "/friends");
+                            // createA.innerHTML ='requests ' + messageDict.message + ' ';
+                            createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
+                            linkOnline.append(createA);
+
+
+                    // })
+                }};
             </script>
         {% end %}
         {% if current_user %}

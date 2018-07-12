@@ -49,6 +49,7 @@ class BaseHandler(tornado.web.RequestHandler):
                 if value is None:
                     value = 'Null'
                     params[key] = value
+
         if params:
             query = query % params
         async with self.application.pool.acquire() as conn:
@@ -171,9 +172,23 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
         return True
 
-    def open(self):
+    async def open(self):
         self.connections[self.get_current_user()] = self
         self.send_message(message_type='online_users', message=self.get_online_users(), send_all=True)
+
+        cur_id = await self.select(''' SELECT id FROM users where
+                                                     username = '%(username)s' ''',
+                                   params=dict(username=self.get_current_user()))
+
+        request_friends = await self.select('''
+                                  SELECT count(u.username) FROM users u JOIN (
+                                    SELECT * FROM (
+                                    SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
+                                     f ON f.friend_one=u.id; ''',
+                                                 params=dict(id=cur_id[0]['id']))
+        print(request_friends[0]['count'])
+
+        self.send_message(message_type='online_friends', message=request_friends[0]['count'], send_all=False)
 
     async def on_message(self, message):
         self.send_message(message=message, send_all=True)
@@ -200,8 +215,9 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
         else:
             self.write_message(**params)
 
-    def get_online_users(self):
-        return list(set(self.connections.keys()))
+    def get_online_users(self, without_current=False):
+        current_user = self.get_current_user()
+        return [user for user in set(self.connections.keys()) if user != current_user and without_current]
 
 
 class PrivateHandler(BaseHandler):
@@ -242,7 +258,6 @@ class PrivateHandler(BaseHandler):
 
                     values = await self.select('''SELECT sender, reciever,
                                                                     message,date_created FROM chat''')
-
                     for value in values:
                         if value['sender'] == self.get_current_user() and value['reciever'] == user:
                             filtered_values.append(value)
@@ -302,39 +317,21 @@ class NotificationHandler(BaseHandler):
                                              username = '%(username)s' ''',
                                        params=dict(username=self.get_current_user()))
 
-            friends = await self.select(''' SELECT friend_one, friend_two FROM friends
-                                                                JOIN users
-                                                                ON ( friend_one = users.id or
-                                                                     friend_two = users.id ) and
-                                                                     friends.status = '1' and
-                                                                     users.username = '%(username)s'  ''',
-                                        params=dict(username=self.get_current_user()))
-            list_id = []
-            for friend in friends:
-                if friend['friend_one'] != cur_id[0]['id']:
-                    list_id.append(friend['friend_one'])
-                else:
-                    list_id.append(friend['friend_two'])
-            friends_name = []
-            if list_id:
-                friends_name = await self.select(''' SELECT username FROM users where
-                                                             id =  any(array%(id)s) ''',
-                                                 params=dict(id=list_id))
+            friends_name = await self.select(''' 
+                          SELECT u.username FROM users u JOIN (
+                            SELECT * FROM (
+                            SELECT friend_two, status FROM friends WHERE friend_one='%(id)s' UNION
+                            SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='1')
+                             f ON f.friend_two=u.id;
+                                            ''',
+                                             params=dict(id=cur_id[0]['id']))
 
-            request_friend = await self.select(''' SELECT friend_one FROM friends where
-                                                          friend_two = '%(id_1)s'
-                                                          and status = '0'  ''',
-                                               params=dict(id_1=cur_id[0]['id']))
-
-            request_id = []
-            for friend in request_friend:
-                request_id.append(friend['friend_one'])
-
-            request_friends_name = []
-            if request_id:
-                request_friends_name = await self.select(''' SELECT username FROM users where
-                                                             id =  any(array%(id)s) ''',
-                                                         params=dict(id=request_id))
+            request_friends_name = await self.select('''
+                          SELECT u.username FROM users u JOIN (
+                            SELECT * FROM (
+                            SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
+                             f ON f.friend_one=u.id; ''',
+                                                     params=dict(id=cur_id[0]['id']))
             users = []
             res = []
             self.render("friends_list.html",
@@ -399,9 +396,18 @@ class RemoveFromFriendsHandler(BaseHandler):
             friend_two = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
                                            params=dict(username=user))
             await self.update(
-                '''UPDATE friends SET status='0' where (friend_one = '%(friend_one)s' or friend_two = '%(friend_one)s')
-                     and (friend_one = '%(friend_two)s' or friend_two = '%(friend_two)s') ''',
+                ''' DELETE FROM friends WHERE (friend_one = '%(friend_one)s' or friend_two = '%(friend_one)s')
+                      and (friend_one = '%(friend_two)s' or friend_two = '%(friend_two)s')  ''',
                 params=dict(
                     friend_one=str(friend_one[0]['id']),
                     friend_two=str(friend_two[0]['id'])))
             self.redirect('/')
+
+
+class OnlineFriendsHandler(BaseHandler):
+    async def get(self, user):
+        if not self.current_user:
+            self.redirect("/login")
+        else:
+            pass
+

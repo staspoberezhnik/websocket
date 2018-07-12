@@ -24,8 +24,9 @@
 
          <h4><a href="/privatmessage/{{friend['username']}}/">{{ friend['username'] }}</a> want to add you to friends
             <a href="/confirm/{{friend['username']}}/" class="btn-success">
-                Confirm
-            </a>
+                Confirm</a>
+            <a href="/remove/{{friend['username']}}/" class="btn-warning">
+                Delete</a>
         </h4>
 
         {% end %}
