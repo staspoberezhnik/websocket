@@ -65,7 +65,7 @@ class MainHandler(BaseHandler):
 
             res = await self.select('''SELECT sender,
              message, date_created FROM chat where reciever is %(receiver)s''', params=dict(receiver=None))
-            self.render("base.html", data=res)
+            self.render("base.html", data=res, see_all=True)
 
 
 class LoginHandler(BaseHandler):
@@ -174,8 +174,9 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
 
     async def open(self):
         self.connections[self.get_current_user()] = self
-        self.send_message(message_type='online_users', message=self.get_online_users(), send_all=True)
-
+        self.send_message(message_type='online_users',
+                          message=self.get_online_users(without_current=False),
+                          send_all=True)
         cur_id = await self.select(''' SELECT id FROM users where
                                                      username = '%(username)s' ''',
                                    params=dict(username=self.get_current_user()))
@@ -185,10 +186,15 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
                                     SELECT * FROM (
                                     SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
                                      f ON f.friend_one=u.id; ''',
-                                                 params=dict(id=cur_id[0]['id']))
-        print(request_friends[0]['count'])
+                                            params=dict(id=cur_id[0]['id']))
+        self.send_message(message_type='requests', message=request_friends[0]['count'])
 
-        self.send_message(message_type='online_friends', message=request_friends[0]['count'], send_all=False)
+        unreaded_priv_message = await self.select(''' SELECT count(message) FROM chat where
+                                                     reciever = '%(username)s' and 
+                                                     status = '0' ''',
+                                                  params=dict(username=self.get_current_user()))
+        self.send_message(message_type='unreaded', message=unreaded_priv_message[0]['count'])
+
 
     async def on_message(self, message):
         self.send_message(message=message, send_all=True)
@@ -216,8 +222,10 @@ class SimpleWebSocket(BaseHandler, tornado.websocket.WebSocketHandler):
             self.write_message(**params)
 
     def get_online_users(self, without_current=False):
-        current_user = self.get_current_user()
-        return [user for user in set(self.connections.keys()) if user != current_user and without_current]
+        if without_current:
+            return [user for user in set(self.connections.keys()) if user != self.get_current_user()]
+        else:
+            return [user for user in set(self.connections.keys())]
 
 
 class PrivateHandler(BaseHandler):
@@ -266,6 +274,11 @@ class PrivateHandler(BaseHandler):
                         else:
                             continue
 
+                    await self.update('''UPDATE chat SET status='1' where (reciever = '%(friend_one)s' or sender = '%(friend_one)s')
+                             and (reciever = '%(friend_two)s' or sender = '%(friend_two)s') ''',
+                                      params=dict(
+                                                friend_one=self.get_current_user(),
+                                                friend_two=user))
                     send_to_user = user
                     self.render("private.html",
                                 send_to=send_to_user,
@@ -282,20 +295,24 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
         return True
 
-    def open(self):
-
+    async def open(self):
         self.connections[self.get_current_user()] = self
+        cur_id = await self.select(''' SELECT id FROM users where username = '%(username)s' ''',
+                                   params=dict(username=self.get_current_user()))
+
+        request_friends = await self.select('''
+                                          SELECT count(u.username) FROM users u JOIN (
+                                            SELECT * FROM (
+                                            SELECT friend_one, status FROM friends
+                                            WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
+                                             f ON f.friend_one=u.id; ''',
+                                            params=dict(id=cur_id[0]['id']))
+        self.send_message(message_type='requests', message=request_friends[0]['count'])
 
     async def on_message(self, message):
         data = tornado.escape.json_decode(message)
 
-        receiver = self.connections.get(data['send_to'])
-        sender = self.connections.get(tornado.escape.xhtml_unescape(data['user']))
-        if receiver:
-            receiver.write_message(message)
-        if sender:
-            sender.write_message(message)
-
+        self.send_message(message=message, send_all=True)
         await self.insert(
             table='chat',
             params=dict(
@@ -303,6 +320,14 @@ class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
                 reciever=data['send_to'],
                 message=data['message'],
                 date_created=datetime.datetime.now()))
+
+    def send_message(self, message, message_type='private', send_all=False):
+        params = dict(message=dict(message_type=message_type, message=message))
+        if send_all:
+            for connection in self.connections.values():
+                connection.write_message(**params)
+        else:
+            self.write_message(**params)
 
     def on_close(self):
         self.connections.pop(self.get_current_user())
@@ -325,20 +350,14 @@ class NotificationHandler(BaseHandler):
                              f ON f.friend_two=u.id;
                                             ''',
                                              params=dict(id=cur_id[0]['id']))
-
-            request_friends_name = await self.select('''
-                          SELECT u.username FROM users u JOIN (
-                            SELECT * FROM (
-                            SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
-                             f ON f.friend_one=u.id; ''',
-                                                     params=dict(id=cur_id[0]['id']))
             users = []
             res = []
             self.render("friends_list.html",
                         users=users,
                         data=res,
                         friends=friends_name,
-                        request_friends=request_friends_name)
+                        # request_friends=request_friends_name,
+                        see_all=False)
 
 
 class AllUsersHandler(BaseHandler):
@@ -347,10 +366,11 @@ class AllUsersHandler(BaseHandler):
             self.redirect("/login")
         else:
             res = await self.select('''SELECT username FROM users''')
-            self.render("all_users.html", data=[], users=res)
+            self.render("all_users.html", data=[], users=res, see_all=False)
 
 
-class InviteHandler(BaseHandler):
+class InviteHandler(SimpleWebSocket):
+
     async def get(self, user):
         if not self.current_user:
             self.redirect("/login")
@@ -360,11 +380,21 @@ class InviteHandler(BaseHandler):
                                            params=dict(username=self.current_user))
             friend_two = await self.select('''SELECT id FROM users where username = '%(username)s' ''',
                                            params=dict(username=user))
+
             await self.insert(
                 table='friends',
                 params=dict(
                     friend_one=str(friend_one[0]['id']),
                     friend_two=str(friend_two[0]['id'])))
+            if user in self.get_online_users():
+                request_friends = await self.select('''
+                                                          SELECT count(u.username) FROM users u JOIN (
+                                                            SELECT * FROM (
+                                                            SELECT friend_one, status FROM friends
+                                                            WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
+                                                             f ON f.friend_one=u.id; ''',
+                                                    params=dict(id=friend_two[0]['id']))
+                self.connections[user].send_message(message_type='requests', message=request_friends[0]['count'])
             self.redirect('/')
 
 
@@ -404,10 +434,40 @@ class RemoveFromFriendsHandler(BaseHandler):
             self.redirect('/')
 
 
-class OnlineFriendsHandler(BaseHandler):
-    async def get(self, user):
+class RequestsHandler(BaseHandler):
+    async def get(self):
         if not self.current_user:
             self.redirect("/login")
         else:
-            pass
+            cur_id = await self.select(''' SELECT id FROM users where
+                                                         username = '%(username)s' ''',
+                                       params=dict(username=self.get_current_user()))
+            request_friends_name = await self.select('''
+                                      SELECT u.username FROM users u JOIN (
+                                        SELECT * FROM (
+                                        SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='0')
+                                         f ON f.friend_one=u.id; ''',
+                                                     params=dict(id=cur_id[0]['id']))
+            users = []
+            res = []
+            self.render("requests.html",
+                        users=users,
+                        data=res,
+                        request_friends=request_friends_name,
+                        see_all=False)
 
+class PrivateMessages(BaseHandler):
+    async def get(self):
+        if not self.current_user:
+            self.redirect("/login")
+        else:
+            senders = await self.select('''select  sender, count(message) from chat
+                                            where reciever = '%(username)s' and status = '0' group by sender; ''',
+                                        params=dict(username=self.get_current_user()))
+            users = []
+            res = []
+            self.render("unreaded_messages.html",
+                        users=users,
+                        data=res,
+                        unreaded=senders,
+                        see_all=False)

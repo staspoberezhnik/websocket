@@ -35,10 +35,10 @@
           <ul class="nav navbar-nav">
 
             <li><a href='/'>Group chat</a></li>
-            <li><a href='/friends '>Notifications</a></li>
+            <li><a href='/friends '>Friends</a></li>
             <li><a href='all_users'>All Users</a></li>
               <li id="online_friends">  </li>
-              <li class="active"><a href="#">private messages<span class="badge">42</span></a></li>
+              <li id="private">  </li>
               {% if current_user %}
                 <li><a href="/logout">Log out "{{ current_user }}"</a></li>
               {% end %}
@@ -50,29 +50,37 @@
 {% end %}
 
         {% if current_user %}
+    {% if see_all %}
      <h2 style="padding-top: 45px;" align="center">Group chat</h2>
         {% end %}
-
+    {% end %}
 
     <div style="width:100%; padding: 20px; overflow-y: auto;">
             {% if current_user %}
+            {% if see_all %}
             <h3>
-                <div id="messages">  </div>
+                <div id="messages"> </div>
             </h3>
+        {% end %}
             {% end %}
                 {% block register %}
                 {% end %}
                 {% block login%}
                 {% end %}
+        {% if current_user %}
+            <h4  style="padding-top: 45px;" >You are signed as <b class="text-success">
+                <i class="glyphicon glyphicon-user"></i>{{ current_user }}</b> (<a href="/logout">logout</a>).
+            </h4>
+        {% end %}
 
             {% if current_user %}
-
+                {% if see_all %}
                 <div style="padding-top: 20px;">
                     <form onsubmit="return sendMessage()",>
-                        <input id="message" type="text" style="width: 70%;"><button style="width: 25%">Send</button>
+                        <input id="message" type="text" style="width: 70%;" required><button style="width: 25%">Send</button>
                     </form>
                 </div>
-
+                {% end %}
             {% end %}
         {% if current_user %}
             <script>
@@ -104,41 +112,42 @@
                     } else if (messageDict.message_type == 'online_users') {
                         var linkDiv = document.getElementById("link");
                         linkDiv.innerHTML = "";
-
                         messageDict.message.forEach(function(element) {
                             var createA = document.createElement('a');
                             createA.setAttribute('href', "/privatmessage/" + element + "/");
                             createA.innerHTML = element + ' ';
                             linkDiv.append(createA);
                         })
-                    } else if (messageDict.message_type == 'online_friends'){
+                    } else if (messageDict.message_type == 'requests'){
                         var linkOnline = document.getElementById("online_friends");
                         linkOnline.innerHTML = "";
-                        // <a href="" >requests<span class="badge"><div > </div> </span></a>
-                        // messageDict.message.forEach(function(element) {
                             var createA = document.createElement('a');
-                            createA.setAttribute('href', "/friends");
-                            // createA.innerHTML ='requests ' + messageDict.message + ' ';
+                            createA.setAttribute('href', "/requests");
                             createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
                             linkOnline.append(createA);
+                    } else if (messageDict.message_type =='unreaded'){
+                        var unreaded = document.getElementById("private");
+                        unreaded.innerHTML ="";
+                        var link = document.createElement('a');
+                        link.setAttribute('href', "/messages");
+                        link.innerHTML = 'private messages<span class="badge"><div>'+ messageDict.message + '</div></span>';
+                        unreaded.append(link)
+
+                    }
 
 
-                    // })
-                }};
+                };
             </script>
         {% end %}
         {% if current_user %}
+        {% if see_all %}
             <div id="onlineUsers">
                 users in chat:
-
                 <div id="link">  </div>
             </div>
         {% end %}
-        {% if current_user %}
-            <h4>You are signed as <b class="text-success">
-                <i class="glyphicon glyphicon-user"></i>{{ current_user }}</b> (<a href="/logout">logout</a>).
-            </h4>
         {% end %}
+
 
             <div class="container">
                 <div class="col-xs-12 col-sm-6">

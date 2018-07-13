@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <div class="col-xs-12 col-sm-6">
+        {% if not unreaded %}
+            <h2>No unread messages</h2>
+        {% end %}
+        {% if unreaded %}
+         <h2>Unread messages</h2>
+        {% for message in unreaded %}
+
+        <h4><a href="/privatmessage/{{message['sender']}}/">{{ message['sender'] }}</a> send you {{message['count']}} messages</h4>
+
+        {% end %}
+        {% end %}
+
+    </div>
+</div>
+{% end %}

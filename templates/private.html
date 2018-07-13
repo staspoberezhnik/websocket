@@ -31,9 +31,9 @@
           <ul class="nav navbar-nav">
 
             <li><a href='/'>Group chat</a></li>
-            <li><a href='/friends'>Notifications</a></li>
+            <li><a href='/friends'>Friends</a></li>
             <li><a href='/all_users'>All users</a></li>
-
+             <li id="online_friends">  </li>
               {% if current_user %}
                 <li><a href="/logout">Log out "{{ current_user }}"</a></li>
               {% end %}
@@ -112,10 +112,22 @@
 
     ws.onmessage = function(evt) {
         var messageDict = JSON.parse(evt.data);
-        // Create a div with the format `user: message`.
-        var messageBox = document.createElement("div");
-        messageBox.innerHTML = messageDict.user + ": " + messageDict.message;
-        document.getElementById("messages").appendChild(messageBox);
+        if (messageDict.message_type == 'private') {
+                        var message = JSON.parse(messageDict.message);
+                        var messageBox = document.createElement("div");
+                        messageBox.innerHTML = message.user + ": " + message.message;
+                        document.getElementById("messages").appendChild(messageBox);}
+        else if (messageDict.message_type == 'requests'){
+                        var linkOnline = document.getElementById("online_friends");
+                        linkOnline.innerHTML = "";
+                        // <a href="" >requests<span class="badge"><div > </div> </span></a>
+                        // messageDict.message.forEach(function(element) {
+                            var createA = document.createElement('a');
+                            createA.setAttribute('href', "/requests");
+                            // createA.innerHTML ='requests ' + messageDict.message + ' ';
+                            createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
+                            linkOnline.append(createA);}
+
     };
     </script>
 
