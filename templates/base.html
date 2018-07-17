@@ -4,69 +4,31 @@
     <title>Chat application</title>
 </head>
 <body>
-
-
-
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <meta name="description" content="">
     <meta name="author" content="">
-
-
-
     <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
     <link href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.7/journal/bootstrap.min.css" rel="stylesheet">
 
-    {% if current_user %}
-    <nav class="navbar navbar-inverse navbar-fixed-top">
-      <div class="container">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
+    {% include 'navbar.html' %}
 
-        </div>
-        <div id="navbar" class="collapse navbar-collapse">
-          <ul class="nav navbar-nav">
-
-            <li><a href='/'>Group chat</a></li>
-            <li><a href='/friends '>Friends</a></li>
-            <li><a href='all_users'>All Users</a></li>
-              <li id="online_friends">  </li>
-              <li id="private">  </li>
-              {% if current_user %}
-                <li><a href="/logout">Log out "{{ current_user }}"</a></li>
-              {% end %}
-              </ul>
-
-        </div><!--/.nav-collapse -->
-      </div>
-    </nav>
-{% end %}
-
-        {% if current_user %}
-    {% if see_all %}
-     <h2 style="padding-top: 45px;" align="center">Group chat</h2>
+     {% if current_user %}
+        {% if see_all %}
+         <h2 style="padding-top: 45px;" align="center">Group chat</h2>
         {% end %}
-    {% end %}
-
+     {% end %}
     <div style="width:100%; padding: 20px; overflow-y: auto;">
-            {% if current_user %}
+        {% if current_user %}
             {% if see_all %}
-            <h3>
-                <div id="messages"> </div>
-            </h3>
-        {% end %}
+            <h3>  <div id="messages"> </div> </h3>
             {% end %}
-                {% block register %}
-                {% end %}
-                {% block login%}
-                {% end %}
+        {% end %}
+        {% block register %}   {% end %}
+        {% block login%}   {% end %}
+
         {% if current_user %}
             <h4  style="padding-top: 45px;" >You are signed as <b class="text-success">
                 <i class="glyphicon glyphicon-user"></i>{{ current_user }}</b> (<a href="/logout">logout</a>).
@@ -83,6 +45,7 @@
                 {% end %}
             {% end %}
         {% if current_user %}
+
             <script>
                 var ws = new WebSocket("ws://127.0.0.1:8888/websocket");
                 var username = '{{current_user}}'
@@ -121,10 +84,10 @@
                     } else if (messageDict.message_type == 'requests'){
                         var linkOnline = document.getElementById("online_friends");
                         linkOnline.innerHTML = "";
-                            var createA = document.createElement('a');
-                            createA.setAttribute('href', "/requests");
-                            createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
-                            linkOnline.append(createA);
+                        var createA = document.createElement('a');
+                        createA.setAttribute('href', "/requests");
+                        createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
+                        linkOnline.append(createA);
                     } else if (messageDict.message_type =='unreaded'){
                         var unreaded = document.getElementById("private");
                         unreaded.innerHTML ="";
@@ -147,8 +110,6 @@
             </div>
         {% end %}
         {% end %}
-
-
             <div class="container">
                 <div class="col-xs-12 col-sm-6">
                     <div class="container">{% block content %}    {% end %}</div>

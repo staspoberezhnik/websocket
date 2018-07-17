@@ -8,23 +8,18 @@
             <div class="text-group" align="center" style=" padding: 20px;">
                 <h1>Register page</h1>
                 <h3> Only letters, digits and _- allowed in username</h3>
-
                 <div class="input-group" align="center">
                         <label for="username">Username</label><br>
                         <input class="form-control" id="username" name="username" type="text" value="" required>
-
                         <div>
                         <label for="password">Password</label><br>
                         <input class="form-control" id="password" name="password" type="password" value="" required>
                         </div>
-
                         <button type="submit" class="btn btn-success">Register</button>
                 </div>
-
                         {% if errors %}
                             <h2>{{errors}}</h2>
                         {% end %}
-
             </div>
         </form>
 

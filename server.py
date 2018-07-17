@@ -8,6 +8,7 @@ from decouple import config
 from chat.handlers import MainHandler, RegisterHandler, LoginHandler, LogoutHandler, SimpleWebSocket, PrivateHandler, \
     SendToUser, NotificationHandler, AllUsersHandler, InviteHandler, AddToFriendsHandler, RemoveFromFriendsHandler,\
     RequestsHandler, PrivateMessages
+from chat.urls import urls
 
 logger = logging.getLogger()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,28 +18,12 @@ class MakeApp(tornado.web.Application):
     pool = None
 
     def __init__(self):
-        handlers = [
-            (r"/", MainHandler),
-            (r"/register", RegisterHandler),
-            (r"/login", LoginHandler),
-            (r'/logout', LogoutHandler),
-            (r"/websocket", SimpleWebSocket),
-            (r"/privatmessage/(?P<user>[-\w]+)/$", PrivateHandler),
-            (r"/send_private", SendToUser),
-            (r"/friends", NotificationHandler),
-            (r"/requests", RequestsHandler),
-            (r"/all_users", AllUsersHandler),
-            (r"/invite/(?P<user>[-\w]+)/$", InviteHandler),
-            (r"/confirm/(?P<user>[-\w]+)/$", AddToFriendsHandler),
-            (r"/remove/(?P<user>[-\w]+)/$", RemoveFromFriendsHandler),
-            (r"/messages", PrivateMessages),
-        ]
         settings = dict(
                     cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
                     template_path=os.path.join(BASE_DIR, "templates")
                         )
 
-        super(MakeApp, self).__init__(handlers, **settings)
+        super(MakeApp, self).__init__(handlers=urls, **settings)
 
     async def create_pool(self):
         self.pool = await asyncpg.create_pool(
