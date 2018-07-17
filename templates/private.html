@@ -47,13 +47,10 @@
                     Delete</a>
         </h4>
         {% end %}
-
         {% if status == 'Friends' %}
             <h4><b class="text-primary"> {{send_to}}</b> is your friend</h4>
             <h4>  <a href="/remove/{{send_to}}/"><b class="btn-warning">Delete</b></a> from friends</h4>
         {% end %}
-
-
     <div style="padding-top: 20px;">
         <form onsubmit="return sendMessage()",>
             <input id="message" type="text" style="width: 70%;"><button style="width: 25%">Send</button>
@@ -64,7 +61,6 @@
         var ws = new WebSocket("ws://127.0.0.1:8888/send_private/{{send_to}}");
         var username = '{{current_user}}';
         var send_to_user = '{{ send_to }}';
-
 
         function sendMessage() {
             var messageInput = document.getElementById("message");
@@ -81,33 +77,9 @@
             return false;
         }
 
-        ws.onmessage = function(evt) {
-            var messageDict = JSON.parse(evt.data);
-            if (messageDict.message_type == 'private') {
-                    var message = JSON.parse(messageDict.message);
-                    var messageBox = document.createElement("div");
-                    messageBox.innerHTML = message.user + ": " + message.message;
-                    document.getElementById("messages").appendChild(messageBox);}
-            else if (messageDict.message_type == 'requests'){
-                    var linkOnline = document.getElementById("online_friends");
-                    linkOnline.innerHTML = "";
-                    // <a href="" >requests<span class="badge"><div > </div> </span></a>
-                    // messageDict.message.forEach(function(element) {
-                    var createA = document.createElement('a');
-                    createA.setAttribute('href', "/requests");
-                    createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
-                    linkOnline.append(createA);
-            }else if (messageDict.message_type =='unreaded'){
-                    var unreaded = document.getElementById("private");
-                    unreaded.innerHTML ="";
-                    var link = document.createElement('a');
-                    link.setAttribute('href', "/messages");
-                    link.innerHTML = 'private messages<span class="badge"><div>'+ messageDict.message + '</div></span>';
-                    unreaded.append(link)
-                        }
-                                    };
-    </script>
 
+    </script>
+        {% include 'scripts.html' %}
         {% if current_user %}
         <h4>You are signed as <b class="text-success">{{ current_user }}</b>
                             (<a href="/logout" class="text-info">logout</a>).</h4>
@@ -163,12 +135,9 @@
         {% end %}
         </div>
     </div>
-
 <!-- Placed at the end of the document so the pages load faster -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-
-</div>
 </body>
 </html>
 

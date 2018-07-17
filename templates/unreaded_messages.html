@@ -8,12 +8,9 @@
         {% if unreaded %}
          <h2>Unread messages</h2>
         {% for message in unreaded %}
-
         <h4><a href="/privatmessage/{{message['sender']}}/">{{ message['sender'] }}</a> send you {{message['count']}} new messages</h4>
-
         {% end %}
         {% end %}
-
     </div>
 </div>
 {% end %}

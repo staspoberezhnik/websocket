@@ -49,7 +49,6 @@
             <script>
                 var ws = new WebSocket("ws://127.0.0.1:8888/websocket");
                 var username = '{{current_user}}'
-
                 function sendMessage() {
                     var messageInput = document.getElementById("message");
                     var message = messageInput.value;
@@ -63,44 +62,9 @@
                     messageInput.value = "";
                     return false;
                 }
-
-                ws.onmessage = function(evt) {
-                    var messageDict = JSON.parse(evt.data);
-                    // Create a div with the format `user: message`.
-                    if (messageDict.message_type == 'chat') {
-                        var message = JSON.parse(messageDict.message);
-                        var messageBox = document.createElement("div");
-                        messageBox.innerHTML = message.user + ": " + message.message;
-                        document.getElementById("messages").appendChild(messageBox);
-                    } else if (messageDict.message_type == 'online_users') {
-                        var linkDiv = document.getElementById("link");
-                        linkDiv.innerHTML = "";
-                        messageDict.message.forEach(function(element) {
-                            var createA = document.createElement('a');
-                            createA.setAttribute('href', "/privatmessage/" + element + "/");
-                            createA.innerHTML = element + ' ';
-                            linkDiv.append(createA);
-                        })
-                    } else if (messageDict.message_type == 'requests'){
-                        var linkOnline = document.getElementById("online_friends");
-                        linkOnline.innerHTML = "";
-                        var createA = document.createElement('a');
-                        createA.setAttribute('href', "/requests");
-                        createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
-                        linkOnline.append(createA);
-                    } else if (messageDict.message_type =='unreaded'){
-                        var unreaded = document.getElementById("private");
-                        unreaded.innerHTML ="";
-                        var link = document.createElement('a');
-                        link.setAttribute('href', "/messages");
-                        link.innerHTML = 'private messages<span class="badge"><div>'+ messageDict.message + '</div></span>';
-                        unreaded.append(link)
-
-                    }
-
-
-                };
             </script>
+
+                        {% include 'scripts.html'  %}
         {% end %}
         {% if current_user %}
         {% if see_all %}

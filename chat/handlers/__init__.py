@@ -16,7 +16,7 @@ def send_group_chat_message(message, message_type='chat',  receiver=None,):
         connection.write_message(**params)
 
 
-def send_private_chat_message(message, message_type='private', receiver=None):
+def send_private_chat_message(message, message_type='chat', receiver=None):
     params = dict(message=dict(message_type=message_type, message=message))
     connections = [private_chat_ws_connections.get(receiver)] if receiver else private_chat_ws_connections.values()
     for connection in connections:
