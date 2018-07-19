@@ -5,9 +5,6 @@ import tornado.web
 import asyncpg
 import tornado.platform.asyncio
 from decouple import config
-from chat.handlers import MainHandler, RegisterHandler, LoginHandler, LogoutHandler, SimpleWebSocket, PrivateHandler, \
-    SendToUser, NotificationHandler, AllUsersHandler, InviteHandler, AddToFriendsHandler, RemoveFromFriendsHandler,\
-    RequestsHandler, PrivateMessages
 from chat.urls import urls
 
 logger = logging.getLogger()

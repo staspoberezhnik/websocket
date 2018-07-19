@@ -29,7 +29,6 @@ def send_private_chat_message(message, message_type='chat', receiver=None):
 #     if private_chat_ws_connections is not None:
 #         send_private_chat_message(message, message_type, receiver)
 
-
 from .web_handlers import *
 from .websocket_handlers import SimpleWebSocket, SendToUser
 from .auth_handlers import *

@@ -4,7 +4,7 @@ import tornado.web
 import tornado.platform.asyncio
 from tornado import escape
 
-from chat.handlers import send_group_chat_message,\
+from chat.handlers import send_group_chat_message, get_online_users, \
     group_chat_ws_connections, private_chat_ws_connections, send_private_chat_message
 
 
@@ -74,6 +74,24 @@ class BaseHandler(tornado.web.RequestHandler):
                   "f ON f.friend_one=u.id; ",
             params=dict(id=user[0]['id']))
 
+    async def get_friends_name(self, user):
+        return await self.select(
+            query="SELECT u.username FROM users u JOIN (" +
+                  "SELECT * FROM (" +
+                  "SELECT friend_two, status FROM friends WHERE friend_one='%(id)s'  UNION " +
+                  "SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='1')" +
+                  "f ON f.friend_two=u.id;",
+            params=dict(id=user[0]['id']))
+
+    async def get_friends_quantity(self, user):
+        return await self.select(
+            query="SELECT count(u.username) FROM users u JOIN (" +
+                  "SELECT * FROM (" +
+                  "SELECT friend_two, status FROM friends WHERE friend_one='%(id)s'  UNION " +
+                  "SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='1')" +
+                  "f ON f.friend_two=u.id;",
+            params=dict(id=user[0]['id']))
+
 
 class MainHandler(BaseHandler):
     async def get(self, *args, **kwargs):
@@ -81,7 +99,7 @@ class MainHandler(BaseHandler):
             query="SELECT sender,message, date_created FROM chat where reciever is %(receiver)s order by date_created",
             params=dict(receiver=None)
         )
-        self.render("base.html", data=res, see_all=True)
+        self.render(template_name="base.html", data=res, see_all=True)
 
 
 class PrivateHandler(BaseHandler):
@@ -150,27 +168,23 @@ class PrivateHandler(BaseHandler):
         )
 
 
-class NotificationHandler(BaseHandler):
+class ShowFriends(BaseHandler):
     async def get(self):
         if not self.current_user:
             self.redirect("/login")
         else:
             current_id = await self.get_user_id(self.get_current_user())
-            friends_name = await self.select(
-                query="SELECT u.username FROM users u JOIN (" +
-                      "SELECT * FROM (" +
-                      "SELECT friend_two, status FROM friends WHERE friend_one='%(id)s'  UNION " +
-                      "SELECT friend_one, status FROM friends WHERE friend_two='%(id)s' ) fr WHERE fr.status='1')" +
-                      "f ON f.friend_two=u.id;",
-                params=dict(id=current_id[0]['id'])
-            )
+            online_users = get_online_users()
+            friends_name = await self.get_friends_name(current_id)
             users = []
             res = []
-            self.render("friends_list.html",
-                        users=users,
-                        data=res,
-                        friends=friends_name,
-                        see_all=False)
+            self.render(
+                template_name="friends_list.html",
+                users=users,
+                data=res,
+                friends=friends_name,
+                online_users=online_users,
+                see_all=False)
 
 
 class AllUsersHandler(BaseHandler):
@@ -178,11 +192,21 @@ class AllUsersHandler(BaseHandler):
         if not self.current_user:
             self.redirect("/login")
         else:
+            current_id = await self.get_user_id(self.get_current_user())
             all_users = await self.select(query="SELECT username FROM users")
-            self.render("all_users.html", data=[], users=all_users, see_all=False)
+            online_users = get_online_users()
+            friends_name = await self.get_friends_name(current_id)
+
+            self.render(
+                template_name="all_users.html",
+                data=[],
+                users=all_users,
+                friends=friends_name,
+                online_users=online_users,
+                see_all=False)
 
 
-class InviteHandler(BaseHandler):
+class InviteToFriends(BaseHandler):
     async def get(self, user):
         if not self.current_user:
             self.redirect("/login")
@@ -220,6 +244,24 @@ class AddToFriendsHandler(BaseHandler):
                 params=dict(
                     friend_one=str(friend_one_id[0]['id']),
                     friend_two=str(friend_two_id[0]['id'])))
+            first_user_friends_quantity = await self.get_friends_quantity(friend_one_id)
+            second_user_friends_quantity = await self.get_friends_quantity(friend_two_id)
+            if self.current_user in group_chat_ws_connections.keys():
+                send_group_chat_message(message=first_user_friends_quantity[0]['count'],
+                                        message_type='friends',
+                                        receiver=self.current_user)
+
+            if user in group_chat_ws_connections.keys():
+                send_group_chat_message(message=second_user_friends_quantity[0]['count'],
+                                        message_type='friends',
+                                        receiver=user
+                                        )
+            if user in private_chat_ws_connections.keys():
+                send_private_chat_message(message=second_user_friends_quantity[0]['count'],
+                                          message_type='friends',
+                                          receiver=user
+                                          )
+
             self.redirect('/requests')
 
 
@@ -236,6 +278,25 @@ class RemoveFromFriendsHandler(BaseHandler):
                 params=dict(
                     friend_one=str(friend_one_id[0]['id']),
                     friend_two=str(friend_two_id[0]['id'])))
+
+            first_user_friends_quantity = await self.get_friends_quantity(friend_one_id)
+            second_user_friends_quantity = await self.get_friends_quantity(friend_two_id)
+            if self.current_user in group_chat_ws_connections.keys():
+                send_group_chat_message(message=first_user_friends_quantity[0]['count'],
+                                        message_type='friends',
+                                        receiver=self.current_user)
+
+            if user in group_chat_ws_connections.keys():
+                send_group_chat_message(message=second_user_friends_quantity[0]['count'],
+                                        message_type='friends',
+                                        receiver=user
+                                        )
+            if user in private_chat_ws_connections.keys():
+                send_private_chat_message(message=second_user_friends_quantity[0]['count'],
+                                          message_type='friends',
+                                          receiver=user
+                                          )
+
             self.redirect('/')
 
 
@@ -253,11 +314,12 @@ class RequestsHandler(BaseHandler):
                 params=dict(id=cur_id[0]['id']))
             users = []
             res = []
-            self.render("requests.html",
-                        users=users,
-                        data=res,
-                        request_friends=request_friends_name,
-                        see_all=False)
+            self.render(
+                template_name="requests.html",
+                users=users,
+                data=res,
+                request_friends=request_friends_name,
+                see_all=False)
 
 
 class PrivateMessages(BaseHandler):
@@ -272,8 +334,9 @@ class PrivateMessages(BaseHandler):
             )
             users = []
             res = []
-            self.render("unreaded_messages.html",
-                        users=users,
-                        data=res,
-                        unreaded=senders,
-                        see_all=False)
+            self.render(
+                template_name="unreaded_messages.html",
+                users=users,
+                data=res,
+                unreaded=senders,
+                see_all=False)

@@ -29,6 +29,12 @@ class SimpleWebSocket(BaseWebSocketHandler):
         current_id = await self.get_user_id(self.get_current_user())
         friendship_requests = await self.get_friendship_requests(current_id)
         unread_private_message = await self.get_unread_messages(self.current_user)
+        friend_count = await self.get_friends_quantity(current_id)
+        send_group_chat_message(message_type='friends',
+                                message=friend_count[0]['count'],
+                                receiver=self.current_user
+                                )
+
         send_group_chat_message(message_type='requests',
                                 message=friendship_requests[0]['count'],
                                 receiver=self.current_user
@@ -61,6 +67,12 @@ class SendToUser(BaseWebSocketHandler):
         private_chat_ws_connections[self.get_current_user()] = self
         current_id = await self.get_user_id(self.get_current_user())
         friendship_requests = await self.get_friendship_requests(current_id)
+        friend_count = await self.get_friends_quantity(current_id)
+
+        send_private_chat_message(message_type='friends',
+                                  message=friend_count[0]['count'],
+                                  receiver=self.current_user
+                                  )
         send_private_chat_message(message_type='requests',
                                   message=friendship_requests[0]['count'],
                                   receiver=self.current_user)

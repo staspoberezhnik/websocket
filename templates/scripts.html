@@ -28,8 +28,15 @@ ws.onmessage = function(evt) {
                         unreaded.innerHTML ="";
                         var link = document.createElement('a');
                         link.setAttribute('href', "/messages");
-                        link.innerHTML = 'private messages<span class="badge"><div>'+ messageDict.message + '</div></span>';
+                        link.innerHTML = 'private messages <span class="badge"><div>'+ messageDict.message + '</div></span>';
                         unreaded.append(link)
+                    }else if (messageDict.message_type =='friends'){
+                        var friends = document.getElementById("friends");
+                        friends.innerHTML ="";
+                        var friendLink = document.createElement('a');
+                        friendLink.setAttribute('href', "/friends");
+                        friendLink.innerHTML = 'Friends <span class="badge"><div>'+ messageDict.message + '</div></span>';
+                        friends.append(friendLink)
                     }
                 };
 </script>

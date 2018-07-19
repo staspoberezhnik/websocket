@@ -5,7 +5,29 @@
   {% end %}
   {% if users %}
       {% for user in users %}
-<h4><b class="text-danger">{{user['username']}}</b> <a href="/privatmessage/{{user['username']}}/" class="text-info">Send</a> private message</h4>
+        <h4><b class="text-danger">{{user['username']}}
+        {% if friends %}
+            {% for friend in friends %}
+               {% if  friend['username']==user['username'] %}
+                    <b class="text-success">your friend</b>
+               {% end %}
+            {% end %}
+        {% end %}
+             </b>
+            {% if user['username'] == current_user %}
+            You
+            {% end %}
+            {% if user['username'] != current_user %}
+        <a href="/privatmessage/{{user['username']}}/" class="text-info">Send</a> private message
+            {% end %}
+        {% if online_users %}
+            {% for online in online_users %}
+                {% if online == user['username'] and user['username'] != current_user  %}
+            <b class="text-warning"> Online</b>
+                {% end %}
+            {% end %}
+        {% end %}
+            </h4>
       {% end %}
   {% end %}
 {% end %}
