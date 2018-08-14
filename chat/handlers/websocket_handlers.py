@@ -1,8 +1,6 @@
 import datetime
-
 from tornado.escape import json_decode, xhtml_unescape
 from tornado.websocket import WebSocketHandler
-
 from chat.handlers import BaseHandler, group_chat_ws_connections, private_chat_ws_connections, get_online_users, \
     send_group_chat_message, send_private_chat_message
 

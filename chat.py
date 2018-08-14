@@ -36,8 +36,6 @@ class MainHandler(BaseHandler):
                 result = await con.fetch('''SELECT sender,
              message, date_created FROM chat where reciever is NULL''')
 
-
-
             users = []
             name = tornado.escape.xhtml_escape(self.get_current_user())
             users.append(name)
@@ -173,9 +171,3 @@ if __name__ == "__main__":
     app.listen(config('PORT'))
     tornado.ioloop.IOLoop.current().start()
 
-# db_connection = await asyncpg.connect(user=config('DB_USER'),
-        #                                       password=config('DB_USER_PASSWORD'),
-        #                                       database=config('DB_NAME'),
-        #                                       host=config('DB_HOST'),
-        #                                       port=config('DB_PORT')
-        #                                       )

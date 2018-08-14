@@ -12,13 +12,13 @@
 
         <h4><a href="/privatmessage/{{friend['username']}}/" class="text-info">{{friend['username']}}</a>
             {% if online_users %}
-              {% for online in online_users %}
-                {% if online == friend['username'] %}
-                 <b class="text-warning"> Online</b>
-                {% end %}
-              {% end %}
+            {% for online in online_users %}
+            {% if online == friend['username'] %}
+            <b class="text-warning"> Online</b>
             {% end %}
-        <a href="/remove/{{friend['username']}}/">  Remove</a> </h4>
+            {% end %}
+            {% end %}
+            <a href="/remove/{{friend['username']}}/"> Remove</a></h4>
         {% end%}
         {% end%}
     </div>

@@ -1,42 +1,42 @@
 <script>
-ws.onmessage = function(evt) {
-                    var messageDict = JSON.parse(evt.data);
-                    // Create a div with the format `user: message`.
-                    if (messageDict.message_type == 'chat') {
-                        var message = JSON.parse(messageDict.message);
-                        var messageBox = document.createElement("div");
-                        messageBox.innerHTML = message.user + ": " + message.message;
-                        document.getElementById("messages").appendChild(messageBox);
-                    } else if (messageDict.message_type == 'online_users') {
-                        var linkDiv = document.getElementById("link");
-                        linkDiv.innerHTML = "";
-                        messageDict.message.forEach(function(element) {
-                            var createA = document.createElement('a');
-                            createA.setAttribute('href', "/privatmessage/" + element + "/");
-                            createA.innerHTML = element + ' ';
-                            linkDiv.append(createA);
-                        })
-                    } else if (messageDict.message_type == 'requests'){
-                        var linkOnline = document.getElementById("online_friends");
-                        linkOnline.innerHTML = "";
-                        var createA = document.createElement('a');
-                        createA.setAttribute('href', "/requests");
-                        createA.innerHTML = 'requests <span class="badge"><div>'+ messageDict.message + '</div></span>';
-                        linkOnline.append(createA);
-                    } else if (messageDict.message_type =='unreaded'){
-                        var unreaded = document.getElementById("private");
-                        unreaded.innerHTML ="";
-                        var link = document.createElement('a');
-                        link.setAttribute('href', "/messages");
-                        link.innerHTML = 'private messages <span class="badge"><div>'+ messageDict.message + '</div></span>';
-                        unreaded.append(link)
-                    }else if (messageDict.message_type =='friends'){
-                        var friends = document.getElementById("friends");
-                        friends.innerHTML ="";
-                        var friendLink = document.createElement('a');
-                        friendLink.setAttribute('href', "/friends");
-                        friendLink.innerHTML = 'Friends <span class="badge"><div>'+ messageDict.message + '</div></span>';
-                        friends.append(friendLink)
-                    }
-                };
+    ws.onmessage = function (evt) {
+        var messageDict = JSON.parse(evt.data);
+        // Create a div with the format `user: message`.
+        if (messageDict.message_type == 'chat') {
+            var message = JSON.parse(messageDict.message);
+            var messageBox = document.createElement("div");
+            messageBox.innerHTML = message.user + ": " + message.message;
+            document.getElementById("messages").appendChild(messageBox);
+        } else if (messageDict.message_type == 'online_users') {
+            var linkDiv = document.getElementById("link");
+            linkDiv.innerHTML = "";
+            messageDict.message.forEach(function (element) {
+                var createA = document.createElement('a');
+                createA.setAttribute('href', "/privatmessage/" + element + "/");
+                createA.innerHTML = element + ' ';
+                linkDiv.append(createA);
+            })
+        } else if (messageDict.message_type == 'requests') {
+            var linkOnline = document.getElementById("online_friends");
+            linkOnline.innerHTML = "";
+            var createA = document.createElement('a');
+            createA.setAttribute('href', "/requests");
+            createA.innerHTML = 'requests <span class="badge"><div>' + messageDict.message + '</div></span>';
+            linkOnline.append(createA);
+        } else if (messageDict.message_type == 'unreaded') {
+            var unreaded = document.getElementById("private");
+            unreaded.innerHTML = "";
+            var link = document.createElement('a');
+            link.setAttribute('href', "/messages");
+            link.innerHTML = 'private messages <span class="badge"><div>' + messageDict.message + '</div></span>';
+            unreaded.append(link)
+        } else if (messageDict.message_type == 'friends') {
+            var friends = document.getElementById("friends");
+            friends.innerHTML = "";
+            var friendLink = document.createElement('a');
+            friendLink.setAttribute('href', "/friends");
+            friendLink.innerHTML = 'Friends <span class="badge"><div>' + messageDict.message + '</div></span>';
+            friends.append(friendLink)
+        }
+    };
 </script>
