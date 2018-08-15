@@ -90,7 +90,6 @@ class PrivateHandler(BaseHandler):
     async def get(self, user):
         if not self.current_user:
             self.redirect("/login")
-
         else:
             if user == self.get_current_user():
                 self.redirect('/')
@@ -115,7 +114,6 @@ class PrivateHandler(BaseHandler):
 
 
 class SendToUser(BaseHandler, tornado.websocket.WebSocketHandler):
-
     connections = dict()
 
     def check_origin(self, origin):
